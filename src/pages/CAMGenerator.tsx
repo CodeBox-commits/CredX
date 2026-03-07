@@ -6,12 +6,12 @@ const camSections = [
   {
     title: "Executive Summary",
     status: "complete",
-    preview: "Acme Infrastructure Pvt Ltd has applied for a term loan facility of ₹200Cr for capacity expansion. Based on AI-driven analysis of financial statements, promoter background, sector conditions, and litigation history, the system recommends conditional approval of ₹120Cr at 12.5% interest rate with quarterly monitoring covenants."
+    preview: "Acme Infrastructure Pvt Ltd has applied for a term loan facility of Rs 200 Cr for capacity expansion. Based on AI-driven analysis of financial statements, promoter background, sector conditions, and litigation history, the system recommends conditional approval of Rs 120 Cr at 12.5% interest rate with quarterly monitoring covenants."
   },
   {
     title: "Company Profile",
     status: "complete",
-    preview: "Incorporated in 2008, Acme Infrastructure is a mid-size infrastructure company with operations across highway construction and urban development. Annual turnover of ₹890Cr (FY24). 340 employees. Operations in 6 states."
+    preview: "Incorporated in 2008, Acme Infrastructure is a mid-size infrastructure company with operations across highway construction and urban development. Annual turnover of Rs 890 Cr (FY24). 340 employees. Operations in 6 states."
   },
   {
     title: "Financial Analysis",
@@ -26,7 +26,7 @@ const camSections = [
   {
     title: "Industry Outlook",
     status: "complete",
-    preview: "Infrastructure sector growing at 8% YoY driven by government capex. However, NPA rates in the sector at 8.2% are concerning. Rising input costs (steel +22%, cement +15%) pressuring margins. Positive: Government pipeline of ₹12 lakh Cr in infrastructure spending."
+    preview: "Infrastructure sector growing at 8% YoY driven by government capex. However, NPA rates in the sector at 8.2% are concerning. Rising input costs (steel +22%, cement +15%) pressuring margins. Positive: Government pipeline of Rs 12 lakh Cr in infrastructure spending."
   },
   {
     title: "Risk Assessment",
@@ -36,18 +36,18 @@ const camSections = [
   {
     title: "Loan Recommendation",
     status: "complete",
-    preview: "CONDITIONAL APPROVAL recommended. Amount: ₹120Cr (vs requested ₹200Cr). Rate: 12.5% fixed. Tenor: 5 years with 6-month moratorium. Conditions: (1) Quarterly financial reporting, (2) DSCR maintenance >1.3x, (3) No additional promoter pledge, (4) Resolution of SEBI investigation within 12 months."
+    preview: "CONDITIONAL APPROVAL recommended. Amount: Rs 120 Cr (vs requested Rs 200 Cr). Rate: 12.5% fixed. Tenor: 5 years with 6-month moratorium. Conditions: (1) Quarterly financial reporting, (2) DSCR maintenance >1.3x, (3) No additional promoter pledge, (4) Resolution of SEBI investigation within 12 months."
   },
 ];
 
 const CAMGenerator = () => {
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">CAM Generator</h1>
           <p className="text-xs text-muted-foreground font-mono mt-0.5">
-            AI-GENERATED CREDIT APPRAISAL MEMO • AUTOMATED REPORT
+            AI-GENERATED CREDIT APPRAISAL MEMO | AUTOMATED REPORT
           </p>
         </div>
         <div className="flex gap-2">
@@ -71,20 +71,20 @@ const CAMGenerator = () => {
         <div className="text-center mb-4">
           <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary">Credit Appraisal Memorandum</p>
           <h2 className="text-lg font-bold mt-1">Acme Infrastructure Pvt Ltd</h2>
-          <p className="text-xs text-muted-foreground mt-1">CIN: U45209MH2008PTC123456 • Generated: December 15, 2024</p>
+          <p className="text-xs text-muted-foreground mt-1">CIN: U45209MH2008PTC123456 | Generated: December 15, 2024</p>
         </div>
-        <div className="grid grid-cols-4 gap-4 border-t border-border pt-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 border-t border-border pt-4">
           <div className="text-center">
             <p className="text-[10px] font-mono text-muted-foreground">FACILITY</p>
             <p className="text-sm font-bold mt-0.5">Term Loan</p>
           </div>
           <div className="text-center">
             <p className="text-[10px] font-mono text-muted-foreground">REQUESTED</p>
-            <p className="text-sm font-bold mt-0.5">₹200 Cr</p>
+            <p className="text-sm font-bold mt-0.5 numeric tabular-nums">Rs 200 Cr</p>
           </div>
           <div className="text-center">
             <p className="text-[10px] font-mono text-muted-foreground">RECOMMENDED</p>
-            <p className="text-sm font-bold mt-0.5 text-primary">₹120 Cr</p>
+            <p className="text-sm font-bold mt-0.5 text-primary numeric tabular-nums">Rs 120 Cr</p>
           </div>
           <div className="text-center">
             <p className="text-[10px] font-mono text-muted-foreground">DECISION</p>

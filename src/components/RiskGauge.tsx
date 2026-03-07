@@ -59,7 +59,7 @@ export const RiskGauge = ({ score, label, maxScore = 100, size = "md" }: RiskGau
         />
       </svg>
       <div className="text-center -mt-6">
-        <p className={cn("text-xl font-bold font-mono", getColor())}>{score}</p>
+        <p className={cn("text-xl font-bold font-mono numeric tabular-nums", getColor())}>{score}</p>
         <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{label}</p>
       </div>
     </div>

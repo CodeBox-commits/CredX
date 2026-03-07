@@ -39,7 +39,7 @@ export const EventTimeline = ({ events }: { events: TimelineEvent[] }) => {
           </div>
           <div className="flex-1 pb-3">
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-[10px] font-mono text-muted-foreground">{event.date}</span>
+              <span className="text-[10px] font-mono text-muted-foreground numeric tabular-nums">{event.date}</span>
               <span className={cn("text-[9px] font-mono px-1.5 py-0.5 rounded border", typeStyles[event.type])}>
                 {event.type.toUpperCase()}
               </span>

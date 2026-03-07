@@ -21,8 +21,8 @@ import {
 const fiveCsData = [
   { metric: "Character", score: 72, detail: "Clean promoter background, minor regulatory history" },
   { metric: "Capacity", score: 58, detail: "DSCR 1.45x, declining capacity utilization at 62%" },
-  { metric: "Capital", score: 75, detail: "Net worth ₹340Cr, reasonable leverage at 1.87x D/E" },
-  { metric: "Collateral", score: 85, detail: "Primary: Plant & machinery ₹520Cr, Collateral coverage 1.8x" },
+  { metric: "Capital", score: 75, detail: "Net worth Rs 340 Cr, reasonable leverage at 1.87x D/E" },
+  { metric: "Collateral", score: 85, detail: "Primary: Plant & machinery Rs 520 Cr, Collateral coverage 1.8x" },
   { metric: "Conditions", score: 48, detail: "Infrastructure sector under stress, rising input costs" },
 ];
 
@@ -52,11 +52,11 @@ const CreditRisk = () => {
   const expectedReturn = ((interestRate[0] / 100) * (1 - adjustedDefault) * loanAmount[0]).toFixed(1);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell space-y-6">
       <div>
         <h1 className="text-xl font-bold">Credit Risk Analytics</h1>
         <p className="text-xs text-muted-foreground font-mono mt-0.5">
-          EXPLAINABLE AI CREDIT RECOMMENDATION • FIVE Cs • RISK SIMULATION
+          EXPLAINABLE AI CREDIT RECOMMENDATION | FIVE Cs | RISK SIMULATION
         </p>
       </div>
 
@@ -78,8 +78,8 @@ const CreditRisk = () => {
             </div>
             <p className="text-sm font-medium mb-1">AI Recommendation: Approve with Conditions</p>
             <p className="text-xs text-muted-foreground">
-              Recommended Amount: <span className="text-primary font-mono">₹120Cr</span> (Requested: ₹200Cr) •
-              Risk-Adjusted Rate: <span className="text-primary font-mono">12.5%</span> •
+              Recommended Amount: <span className="text-primary font-mono numeric tabular-nums">Rs 120 Cr</span> (Requested: Rs 200 Cr) |
+              Risk-Adjusted Rate: <span className="text-primary font-mono numeric tabular-nums">12.5%</span> |
               Tenor: <span className="text-primary font-mono">5 Years</span>
             </p>
             <div className="mt-2 p-2 rounded bg-secondary/50 border border-border">
@@ -138,7 +138,7 @@ const CreditRisk = () => {
           className="bg-card rounded-lg border border-border p-4"
         >
           <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
-            Explainable AI — Feature Importance
+            Explainable AI - Feature Importance
           </p>
           <div className="space-y-2">
             {featureImportance.map((f, i) => (
@@ -160,10 +160,10 @@ const CreditRisk = () => {
                   />
                 </div>
                 <span className={cn(
-                  "text-[10px] font-mono w-6",
+                  "text-[10px] font-mono w-10 text-right numeric tabular-nums",
                   f.impact === "negative" ? "text-destructive" : "text-success"
                 )}>
-                  {f.importance}
+                  {f.importance}%
                 </span>
               </motion.div>
             ))}
@@ -194,21 +194,21 @@ const CreditRisk = () => {
             <div>
               <div className="flex justify-between mb-2">
                 <span className="text-xs text-muted-foreground">Loan Amount</span>
-                <span className="text-xs font-mono text-primary">₹{loanAmount[0]}Cr</span>
+                <span className="text-xs font-mono text-primary numeric tabular-nums">Rs {loanAmount[0]} Cr</span>
               </div>
               <Slider value={loanAmount} onValueChange={setLoanAmount} min={50} max={300} step={10} className="[&_[role=slider]]:bg-primary" />
             </div>
             <div>
               <div className="flex justify-between mb-2">
                 <span className="text-xs text-muted-foreground">Collateral Coverage</span>
-                <span className="text-xs font-mono text-primary">{collateralCoverage[0]}%</span>
+                <span className="text-xs font-mono text-primary numeric tabular-nums">{collateralCoverage[0]}%</span>
               </div>
               <Slider value={collateralCoverage} onValueChange={setCollateralCoverage} min={80} max={300} step={10} className="[&_[role=slider]]:bg-primary" />
             </div>
             <div>
               <div className="flex justify-between mb-2">
                 <span className="text-xs text-muted-foreground">Interest Rate</span>
-                <span className="text-xs font-mono text-primary">{interestRate[0]}%</span>
+                <span className="text-xs font-mono text-primary numeric tabular-nums">{interestRate[0]}%</span>
               </div>
               <Slider value={interestRate} onValueChange={setInterestRate} min={8} max={18} step={0.5} className="[&_[role=slider]]:bg-primary" />
             </div>
@@ -217,7 +217,7 @@ const CreditRisk = () => {
               <div className="flex justify-between">
                 <span className="text-xs text-muted-foreground">Prob. of Default</span>
                 <span className={cn(
-                  "text-sm font-mono font-bold",
+                  "text-sm font-mono font-bold numeric tabular-nums",
                   adjustedDefault < 0.05 ? "text-success" : adjustedDefault < 0.1 ? "text-warning" : "text-destructive"
                 )}>
                   {(adjustedDefault * 100).toFixed(1)}%
@@ -226,7 +226,7 @@ const CreditRisk = () => {
               <div className="flex justify-between">
                 <span className="text-xs text-muted-foreground">Risk Score</span>
                 <span className={cn(
-                  "text-sm font-mono font-bold",
+                  "text-sm font-mono font-bold numeric tabular-nums",
                   riskScore >= 70 ? "text-success" : riskScore >= 50 ? "text-warning" : "text-destructive"
                 )}>
                   {Math.max(0, Math.min(100, riskScore))}/100
@@ -234,7 +234,7 @@ const CreditRisk = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-xs text-muted-foreground">Expected Return</span>
-                <span className="text-sm font-mono font-bold text-primary">₹{expectedReturn}Cr</span>
+                <span className="text-sm font-mono font-bold text-primary numeric tabular-nums">Rs {expectedReturn} Cr</span>
               </div>
             </div>
           </div>
@@ -246,11 +246,11 @@ const CreditRisk = () => {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="bg-card rounded-lg border border-border p-4"
-      >
-        <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
-          Due Diligence Integration — Qualitative Observations
-        </p>
+          className="bg-card rounded-lg border border-border p-4"
+        >
+          <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
+            Due Diligence Integration - Qualitative Observations
+          </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <textarea

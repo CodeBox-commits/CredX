@@ -58,8 +58,8 @@ const radarData = [
 ];
 
 const timelineEvents = [
-  { date: "2024-12-15", title: "GST Filing Anomaly Detected", description: "Input tax credit mismatch of ₹2.3Cr between GSTR-2A and GSTR-3B", type: "financial" as const },
-  { date: "2024-11-28", title: "NCLT Case Filed", description: "Operational creditor filed case for ₹45L recovery", type: "legal" as const },
+  { date: "2024-12-15", title: "GST Filing Anomaly Detected", description: "Input tax credit mismatch of Rs 2.3 Cr between GSTR-2A and GSTR-3B", type: "financial" as const },
+  { date: "2024-11-28", title: "NCLT Case Filed", description: "Operational creditor filed case for Rs 45 L recovery", type: "legal" as const },
   { date: "2024-11-10", title: "Credit Rating Downgrade", description: "CRISIL downgraded from A+ to A due to declining margins", type: "regulatory" as const },
   { date: "2024-10-22", title: "Sector Outlook Changed", description: "RBI flagged real estate sector for increased NPA monitoring", type: "news" as const },
   { date: "2024-09-15", title: "Promoter Pledge Increase", description: "Promoter shareholding pledge increased from 12% to 28%", type: "financial" as const },
@@ -67,13 +67,13 @@ const timelineEvents = [
 
 const Dashboard = () => {
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">AI Intelligence Dashboard</h1>
           <p className="text-xs text-muted-foreground font-mono mt-0.5">
-            AUTONOMOUS CREDIT INTELLIGENCE SYSTEM • REAL-TIME MONITORING
+            AUTONOMOUS CREDIT INTELLIGENCE SYSTEM | REAL-TIME MONITORING
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -110,8 +110,8 @@ const Dashboard = () => {
         />
         <MetricCard
           title="Portfolio Value"
-          value="₹4,820Cr"
-          change="+₹340Cr this quarter"
+          value="Rs 4,820 Cr"
+          change="+Rs 340 Cr this quarter"
           changeType="positive"
           icon={DollarSign}
           glowColor="primary"
@@ -127,7 +127,7 @@ const Dashboard = () => {
           className="lg:col-span-2 bg-card rounded-lg border border-border p-4"
         >
           <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
-            Portfolio Revenue & Expenses Trend (₹Cr)
+            Portfolio Revenue & Expenses Trend (Rs Cr)
           </p>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={revenueData}>
@@ -162,7 +162,7 @@ const Dashboard = () => {
           className="bg-card rounded-lg border border-border p-4"
         >
           <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
-            Five Cs Assessment — Sample Borrower
+            Five Cs Assessment - Sample Borrower
           </p>
           <ResponsiveContainer width="100%" height={220}>
             <RadarChart data={radarData}>

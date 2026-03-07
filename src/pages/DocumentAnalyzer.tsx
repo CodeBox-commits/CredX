@@ -21,9 +21,9 @@ const extractedSignals = [
 ];
 
 const documentSections = [
-  { page: "P.12", title: "Revenue Recognition Policy", risk: "medium", note: "Aggressive revenue recognition detected — booking revenue before delivery confirmation." },
-  { page: "P.28", title: "Related Party Transactions", risk: "high", note: "₹45Cr in unsecured loans to promoter-linked entities with no stated repayment schedule." },
-  { page: "P.34", title: "Contingent Liabilities", risk: "high", note: "Undisclosed ₹12Cr guarantee to subsidiary not reflected in main balance sheet." },
+  { page: "P.12", title: "Revenue Recognition Policy", risk: "medium", note: "Aggressive revenue recognition detected - booking revenue before delivery confirmation." },
+  { page: "P.28", title: "Related Party Transactions", risk: "high", note: "Rs 45 Cr in unsecured loans to promoter-linked entities with no stated repayment schedule." },
+  { page: "P.34", title: "Contingent Liabilities", risk: "high", note: "Undisclosed Rs 12 Cr guarantee to subsidiary not reflected in main balance sheet." },
   { page: "P.41", title: "Auditor Qualifications", risk: "medium", note: "Emphasis of matter on going concern and inventory valuation methodology." },
   { page: "P.55", title: "Debt Maturity Profile", risk: "low", note: "Well-staggered repayments with no bullet maturities in next 18 months." },
 ];
@@ -32,11 +32,11 @@ const DocumentAnalyzer = () => {
   const [selectedDoc, setSelectedDoc] = useState<number | null>(null);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell space-y-6">
       <div>
         <h1 className="text-xl font-bold">Financial Document Analyzer</h1>
         <p className="text-xs text-muted-foreground font-mono mt-0.5">
-          AI-POWERED DOCUMENT INTELLIGENCE ENGINE • OCR • TABLE EXTRACTION • RISK DETECTION
+          AI-POWERED DOCUMENT INTELLIGENCE ENGINE | OCR | TABLE EXTRACTION | RISK DETECTION
         </p>
       </div>
 
@@ -74,7 +74,7 @@ const DocumentAnalyzer = () => {
 
           {/* Simulated PDF with highlights */}
           <div className="bg-secondary/50 rounded-md p-4 space-y-2 font-mono text-xs">
-            <p className="text-muted-foreground text-[10px] mb-3">ANNUAL_REPORT_2024.pdf — AI Analysis</p>
+            <p className="text-muted-foreground text-[10px] mb-3">ANNUAL_REPORT_2024.pdf - AI Analysis</p>
             {documentSections.map((section, i) => (
               <div
                 key={i}
@@ -123,10 +123,10 @@ const DocumentAnalyzer = () => {
             </div>
             <div className="space-y-2">
               {extractedSignals.map((signal) => (
-                <div key={signal.label} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+                <div key={signal.label} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-1.5 border-b border-border last:border-0">
                   <span className="text-xs text-muted-foreground">{signal.label}</span>
                   <span className={cn(
-                    "text-xs font-mono font-semibold",
+                    "text-xs font-mono font-semibold numeric tabular-nums text-right whitespace-nowrap",
                     signal.status === "positive" ? "text-success" :
                     signal.status === "warning" ? "text-warning" :
                     "text-foreground"
@@ -144,21 +144,21 @@ const DocumentAnalyzer = () => {
             transition={{ delay: 0.2 }}
             className="space-y-2"
           >
-            <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              AI Risk Insights
-            </p>
-            <AIInsightCard
-              title="Hidden Liability Detected"
-              insight="Contingent liabilities of ₹12Cr found in subsidiary not consolidated in main balance sheet. Adjusting effective debt ratio from 1.87 to 2.24."
-              severity="critical"
-              tags={["LIABILITY", "SUBSIDIARY"]}
-            />
-            <AIInsightCard
-              title="Revenue Quality Concern"
-              insight="Channel stuffing pattern detected — Q4 revenue spike of 40% followed by Q1 returns of 18%. Indicates possible window dressing."
-              severity="warning"
-              tags={["REVENUE", "PATTERN"]}
-            />
+              <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                AI Risk Insights
+              </p>
+              <AIInsightCard
+                title="Hidden Liability Detected"
+                insight="Contingent liabilities of Rs 12 Cr found in subsidiary not consolidated in main balance sheet. Adjusting effective debt ratio from 1.87 to 2.24."
+                severity="critical"
+                tags={["LIABILITY", "SUBSIDIARY"]}
+              />
+              <AIInsightCard
+                title="Revenue Quality Concern"
+                insight="Channel stuffing pattern detected - Q4 revenue spike of 40% followed by Q1 returns of 18%. Indicates possible window dressing."
+                severity="warning"
+                tags={["REVENUE", "PATTERN"]}
+              />
           </motion.div>
         </div>
       </div>

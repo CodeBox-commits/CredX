@@ -10,15 +10,15 @@ interface Message {
 
 const sampleConversation: Message[] = [
   { role: "user", content: "What are the major risks for Acme Infrastructure?" },
-  {
+ {
     role: "assistant",
     content: `Based on my analysis, Acme Infrastructure has **4 critical risk factors**:
 
 1. **Capacity Utilization (HIGH)**: Factory operating at only 40% capacity, significantly below the 75% industry benchmark. This directly impacts debt servicing ability.
 
-2. **Promoter Pledge Risk (HIGH)**: Promoter shareholding pledge surged from 12% to 28% in 3 months — a 133% increase. This pattern historically correlates with a 42% higher probability of default.
+2. **Promoter Pledge Risk (HIGH)**: Promoter shareholding pledge surged from 12% to 28% in 3 months - a 133% increase. This pattern historically correlates with a 42% higher probability of default.
 
-3. **Shell Company Linkage (MEDIUM-HIGH)**: Gamma Trading Co, linked via common directors, shows characteristics of a shell entity. ₹45Cr in unsecured loans to this entity raises fund diversion concerns.
+3. **Shell Company Linkage (MEDIUM-HIGH)**: Gamma Trading Co, linked via common directors, shows characteristics of a shell entity. Rs 45 Cr in unsecured loans to this entity raises fund diversion concerns.
 
 4. **Sector Stress (MEDIUM)**: Infrastructure sector NPA at 8.2%, combined with input cost inflation (steel +22%, cement +15%), creates margin pressure.
 
@@ -32,13 +32,13 @@ Recommended action: Reduce exposure and add monitoring covenants.`,
 
 | Scenario | Loan Amount | PD | Risk Score |
 |----------|------------|-----|-----------|
-| Conservative | **₹80Cr** | 3.2% | 82/100 |
-| Moderate | **₹120Cr** | 6.8% | 67/100 |
-| Aggressive | **₹200Cr** | 12.4% | 48/100 |
+| Conservative | **Rs 80 Cr** | 3.2% | 82/100 |
+| Moderate | **Rs 120 Cr** | 6.8% | 67/100 |
+| Aggressive | **Rs 200 Cr** | 12.4% | 48/100 |
 
-**Recommended: ₹120Cr** — This balances the borrower's needs with acceptable risk levels. At this amount, collateral coverage remains at 1.8x and DSCR stays above 1.3x.
+**Recommended: Rs 120 Cr** - This balances the borrower's needs with acceptable risk levels. At this amount, collateral coverage remains at 1.8x and DSCR stays above 1.3x.
 
-The conservative option of ₹80Cr provides the safest exposure but may not meet the borrower's capacity expansion requirements. The aggressive option of ₹200Cr exceeds comfortable risk thresholds given current capacity utilization and sector conditions.`,
+The conservative option of Rs 80 Cr provides the safest exposure but may not meet the borrower's capacity expansion requirements. The aggressive option of Rs 200 Cr exceeds comfortable risk thresholds given current capacity utilization and sector conditions.`,
   },
 ];
 
@@ -66,11 +66,11 @@ const Copilot = () => {
   };
 
   return (
-    <div className="p-6 h-[calc(100vh-0px)] flex flex-col">
+    <div className="page-shell h-full min-h-0 flex flex-col">
       <div className="mb-4">
         <h1 className="text-xl font-bold">AI Credit Copilot</h1>
         <p className="text-xs text-muted-foreground font-mono mt-0.5">
-          INTERACTIVE AI ASSISTANT • DATA-BACKED CREDIT ANALYSIS
+          INTERACTIVE AI ASSISTANT | DATA-BACKED CREDIT ANALYSIS
         </p>
       </div>
 
