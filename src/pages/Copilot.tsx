@@ -9,10 +9,10 @@ interface Message {
 }
 
 const sampleConversation: Message[] = [
-  { role: "user", content: "What are the major risks for Acme Infrastructure?" },
+  { role: "user", content: "What are the major risks for Adani Power Limited?" },
  {
     role: "assistant",
-    content: `Based on my analysis, Acme Infrastructure has **4 critical risk factors**:
+    content: `Based on my analysis, Adani Power Limited has **4 critical risk factors**:
 
 1. **Capacity Utilization (HIGH)**: Factory operating at only 40% capacity, significantly below the 75% industry benchmark. This directly impacts debt servicing ability.
 

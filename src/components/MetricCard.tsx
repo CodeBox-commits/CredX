@@ -21,17 +21,17 @@ export const MetricCard = ({
   subtitle,
   glowColor = "primary",
 }: MetricCardProps) => {
-  const glowClasses = {
-    primary: "glow-primary border-primary/20",
-    success: "glow-success border-success/20",
-    warning: "glow-warning border-warning/20",
-    destructive: "glow-destructive border-destructive/20",
+  const cardAccentClasses = {
+    primary: "border-primary/25",
+    success: "border-success/25",
+    warning: "border-warning/35",
+    destructive: "border-destructive/30",
   };
 
   const iconBgClasses = {
     primary: "bg-primary/10 text-primary",
-    success: "bg-success/10 text-success",
-    warning: "bg-warning/10 text-warning",
+    success: "bg-primary/10 text-primary",
+    warning: "bg-accent/15 text-accent",
     destructive: "bg-destructive/10 text-destructive",
   };
 
@@ -40,14 +40,14 @@ export const MetricCard = ({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        "bg-card rounded-lg border p-4 h-full",
-        glowClasses[glowColor]
+        "bg-card rounded-lg border p-4 h-full shadow-sm",
+        cardAccentClasses[glowColor]
       )}
     >
       <div className="flex items-start justify-between">
         <div className="min-w-0">
-          <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{title}</p>
-          <p className="text-2xl font-bold mt-1 font-mono numeric tabular-nums leading-none">{value}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+          <p className="text-3xl font-bold mt-1 numeric tabular-nums leading-none text-foreground">{value}</p>
           {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
         </div>
         <div className={cn("w-8 h-8 rounded-md flex items-center justify-center", iconBgClasses[glowColor])}>
@@ -56,7 +56,7 @@ export const MetricCard = ({
       </div>
       {change && (
         <p className={cn(
-          "text-xs font-mono mt-2 numeric tabular-nums",
+          "text-xs mt-2 numeric tabular-nums font-medium",
           changeType === "positive" && "text-success",
           changeType === "negative" && "text-destructive",
           changeType === "neutral" && "text-muted-foreground"

@@ -5,9 +5,9 @@ import { EventTimeline } from "@/components/EventTimeline";
 import { cn } from "@/lib/utils";
 
 const newsItems = [
-  { source: "Economic Times", date: "2024-12-14", title: "Company X faces regulatory scrutiny over land deals", sentiment: "negative" as const, score: -0.72 },
+  { source: "Economic Times", date: "2024-12-14", title: "Adani Power faces regulatory scrutiny over fuel procurement disclosures", sentiment: "negative" as const, score: -0.72 },
   { source: "Business Standard", date: "2024-12-10", title: "Sector outlook remains cautious amid rising input costs", sentiment: "negative" as const, score: -0.45 },
-  { source: "Mint", date: "2024-12-05", title: "Company X bags Rs 200 Cr government contract", sentiment: "positive" as const, score: 0.68 },
+  { source: "Mint", date: "2024-12-05", title: "Adani Power secures Rs 200 Cr state utility supply contract", sentiment: "positive" as const, score: 0.68 },
   { source: "Reuters", date: "2024-11-28", title: "Industry body warns of NPA increase in infrastructure sector", sentiment: "negative" as const, score: -0.58 },
   { source: "LiveMint", date: "2024-11-20", title: "Promoter group restructures holding through new entity", sentiment: "neutral" as const, score: -0.12 },
 ];
@@ -50,7 +50,7 @@ const CorporateResearch = () => {
               type="text"
               placeholder="Search company: e.g., 'Reliance Infrastructure Ltd' or CIN number..."
               className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-              defaultValue="Acme Infrastructure Pvt Ltd"
+              defaultValue="Adani Power Limited"
             />
           </div>
           <button className="px-4 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-medium">

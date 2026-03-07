@@ -74,7 +74,7 @@ const DocumentAnalyzer = () => {
 
           {/* Simulated PDF with highlights */}
           <div className="bg-secondary/50 rounded-md p-4 space-y-2 font-mono text-xs">
-            <p className="text-muted-foreground text-[10px] mb-3">ANNUAL_REPORT_2024.pdf - AI Analysis</p>
+            <p className="text-muted-foreground text-[10px] mb-3">ADANI_POWER_ANNUAL_REPORT_2024.pdf - AI Analysis</p>
             {documentSections.map((section, i) => (
               <div
                 key={i}

@@ -6,12 +6,12 @@ const camSections = [
   {
     title: "Executive Summary",
     status: "complete",
-    preview: "Acme Infrastructure Pvt Ltd has applied for a term loan facility of Rs 200 Cr for capacity expansion. Based on AI-driven analysis of financial statements, promoter background, sector conditions, and litigation history, the system recommends conditional approval of Rs 120 Cr at 12.5% interest rate with quarterly monitoring covenants."
+    preview: "Adani Power Limited has applied for a term loan facility of Rs 200 Cr for capacity expansion. Based on AI-driven analysis of financial statements, promoter background, sector conditions, and litigation history, the system recommends conditional approval of Rs 120 Cr at 12.5% interest rate with quarterly monitoring covenants."
   },
   {
     title: "Company Profile",
     status: "complete",
-    preview: "Incorporated in 2008, Acme Infrastructure is a mid-size infrastructure company with operations across highway construction and urban development. Annual turnover of Rs 890 Cr (FY24). 340 employees. Operations in 6 states."
+    preview: "Adani Power Limited is a major private thermal power producer with generation assets across multiple Indian states. Annual turnover of Rs 890 Cr (sample case data, FY24). Operations include long-term and merchant power supply contracts."
   },
   {
     title: "Financial Analysis",
@@ -70,7 +70,7 @@ const CAMGenerator = () => {
       >
         <div className="text-center mb-4">
           <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary">Credit Appraisal Memorandum</p>
-          <h2 className="text-lg font-bold mt-1">Acme Infrastructure Pvt Ltd</h2>
+          <h2 className="text-lg font-bold mt-1">Adani Power Limited</h2>
           <p className="text-xs text-muted-foreground mt-1">CIN: U45209MH2008PTC123456 | Generated: December 15, 2024</p>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 border-t border-border pt-4">

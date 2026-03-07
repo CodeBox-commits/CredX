@@ -1,66 +1,91 @@
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
+import { PieChart, Pie, Cell } from "recharts";
 
 interface RiskGaugeProps {
   score: number;
   label: string;
+  minScore?: number;
   maxScore?: number;
   size?: "sm" | "md" | "lg";
 }
 
-export const RiskGauge = ({ score, label, maxScore = 100, size = "md" }: RiskGaugeProps) => {
-  const percentage = (score / maxScore) * 100;
-  const radius = size === "sm" ? 35 : size === "md" ? 50 : 65;
-  const strokeWidth = size === "sm" ? 4 : 6;
-  const circumference = 2 * Math.PI * radius;
-  const arcLength = circumference * 0.75;
-  const filledLength = arcLength * (percentage / 100);
-  const svgSize = (radius + strokeWidth) * 2;
+export const RiskGauge = ({ score, label, minScore = 300, maxScore = 900, size = "md" }: RiskGaugeProps) => {
+  // Backward compatible normalization for legacy 0-100 score callers.
+  const normalizedScore = score <= 100 ? Math.round(minScore + (score / 100) * (maxScore - minScore)) : score;
+  const clampedScore = Math.max(minScore, Math.min(maxScore, normalizedScore));
+  const percentage = ((clampedScore - minScore) / (maxScore - minScore)) * 100;
 
-  const getColor = () => {
-    if (percentage >= 75) return "text-success";
-    if (percentage >= 50) return "text-primary";
-    if (percentage >= 25) return "text-warning";
-    return "text-destructive";
-  };
-
-  const getStrokeColor = () => {
-    if (percentage >= 75) return "hsl(var(--success))";
-    if (percentage >= 50) return "hsl(var(--primary))";
-    if (percentage >= 25) return "hsl(var(--warning))";
+  const gaugeColor = (() => {
+    if (clampedScore >= 750) return "hsl(var(--success))";
+    if (clampedScore >= 650) return "hsl(var(--warning))";
     return "hsl(var(--destructive))";
+  })();
+
+  const tierText = (() => {
+    if (clampedScore >= 750) return "Low Risk";
+    if (clampedScore >= 650) return "Medium Risk";
+    return "High Risk";
+  })();
+
+  const sizeMap = {
+    sm: { width: 210, height: 125, outerRadius: 84, innerRadius: 66, scoreClass: "text-2xl" },
+    md: { width: 260, height: 155, outerRadius: 102, innerRadius: 80, scoreClass: "text-3xl" },
+    lg: { width: 320, height: 190, outerRadius: 124, innerRadius: 98, scoreClass: "text-4xl" },
   };
+  const config = sizeMap[size];
+
+  const gaugeData = [
+    { name: "score", value: percentage },
+    { name: "remaining", value: 100 - percentage },
+  ];
 
   return (
-    <div className="flex flex-col items-center">
-      <svg width={svgSize} height={svgSize} className="transform -rotate-[135deg]">
-        <circle
-          cx={svgSize / 2}
-          cy={svgSize / 2}
-          r={radius}
-          fill="none"
-          stroke="hsl(var(--border))"
-          strokeWidth={strokeWidth}
-          strokeDasharray={`${arcLength} ${circumference}`}
-          strokeLinecap="round"
-        />
-        <motion.circle
-          cx={svgSize / 2}
-          cy={svgSize / 2}
-          r={radius}
-          fill="none"
-          stroke={getStrokeColor()}
-          strokeWidth={strokeWidth}
-          strokeDasharray={`${filledLength} ${circumference}`}
-          strokeLinecap="round"
-          initial={{ strokeDasharray: `0 ${circumference}` }}
-          animate={{ strokeDasharray: `${filledLength} ${circumference}` }}
-          transition={{ duration: 1.5, ease: "easeOut" }}
-        />
-      </svg>
-      <div className="text-center -mt-6">
-        <p className={cn("text-xl font-bold font-mono numeric tabular-nums", getColor())}>{score}</p>
-        <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{label}</p>
+    <div className="flex flex-col items-center rounded-lg border border-border bg-card p-4 shadow-sm">
+      <div className="relative">
+        <PieChart width={config.width} height={config.height}>
+          <Pie
+            data={[
+              { name: "low", value: 33.34 },
+              { name: "medium", value: 33.33 },
+              { name: "high", value: 33.33 },
+            ]}
+            dataKey="value"
+            cx="50%"
+            cy="100%"
+            startAngle={180}
+            endAngle={0}
+            innerRadius={config.innerRadius}
+            outerRadius={config.outerRadius}
+            strokeWidth={0}
+          >
+            <Cell fill="hsl(var(--destructive))" />
+            <Cell fill="hsl(var(--warning))" />
+            <Cell fill="hsl(var(--success))" />
+          </Pie>
+          <Pie
+            data={gaugeData}
+            dataKey="value"
+            cx="50%"
+            cy="100%"
+            startAngle={180}
+            endAngle={0}
+            innerRadius={config.innerRadius - 10}
+            outerRadius={config.outerRadius - 8}
+            strokeWidth={0}
+          >
+            <Cell fill={gaugeColor} />
+            <Cell fill="hsl(var(--muted))" />
+          </Pie>
+        </PieChart>
+        <div className="absolute inset-x-0 top-[42%] text-center">
+          <p className={cn("font-bold text-foreground numeric tabular-nums leading-none", config.scoreClass)}>{clampedScore}</p>
+          <p className="mt-1 text-[11px] font-semibold text-primary">{tierText}</p>
+        </div>
+      </div>
+      <div className="mt-1 flex w-full items-center justify-between text-[10px] font-medium text-muted-foreground">
+        <span className="numeric tabular-nums">{minScore}</span>
+        <span className="uppercase tracking-wide text-foreground">{label}</span>
+        <span className="numeric tabular-nums">{maxScore}</span>
       </div>
     </div>
   );
