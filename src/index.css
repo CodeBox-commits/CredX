@@ -6,8 +6,8 @@
 
 @layer base {
   :root {
-    --background: 210 20% 96%;
-    --foreground: 220 26% 18%;
+    --background: 0 0% 100%;
+    --foreground: 215 28% 17%;
 
     --card: 0 0% 100%;
     --card-foreground: 220 26% 18%;
@@ -18,10 +18,10 @@
     --primary: 210 100% 31%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 20% 96%;
-    --secondary-foreground: 220 26% 18%;
+    --secondary: 210 20% 98%;
+    --secondary-foreground: 215 28% 17%;
 
-    --muted: 210 20% 96%;
+    --muted: 210 20% 98%;
     --muted-foreground: 220 9% 46%;
 
     --accent: 29 92% 54%;
@@ -36,8 +36,8 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 215 24% 87%;
-    --input: 215 24% 87%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
     --ring: 210 100% 31%;
 
     --radius: 0.5rem;
@@ -57,7 +57,7 @@
     --glow-warning: 0 8px 24px hsl(38 92% 50% / 0.16);
     --glow-destructive: 0 8px 24px hsl(0 84% 60% / 0.12);
     --gradient-primary: linear-gradient(135deg, hsl(210 100% 31%), hsl(210 88% 38%));
-    --gradient-dark: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 20% 98%));
+    --gradient-dark: linear-gradient(180deg, hsl(0 0% 100%), hsl(0 0% 100%));
     --font-mono: 'Inter', sans-serif;
     --font-sans: 'Inter', sans-serif;
   }
@@ -69,12 +69,13 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-white text-slate-800 antialiased;
     font-family: var(--font-sans);
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-sans);
+    color: #003b73;
   }
 
   code, .font-mono {
