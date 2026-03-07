@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Building2, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -13,16 +13,20 @@ const navItems = [
 
 export const TopNavbar = () => {
   return (
-    <header className="sticky top-0 z-50 bg-gradient-to-b from-[#F6F9FF] to-[#EEF4FF] shadow-sm">
+    <header className="sticky top-0 z-50 border-b-2 border-blue-900/30 bg-gradient-to-b from-[#F6F9FF] to-[#EEF4FF] shadow-sm">
       <div className="border-b border-[#E3ECFF]">
         <div className="mx-auto flex h-20 w-full max-w-[1400px] items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-4">
             <NavLink to="/" className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-50">
-                <Building2 className="h-5 w-5 text-blue-900" />
+                <img
+                  src="/favicon.jpg"
+                  alt="IntelliCredit logo"
+                  className="h-5 w-5 float-logo"
+                />
               </div>
               <div className="flex flex-col leading-tight">
-                <span className="text-lg font-bold text-blue-900">
+                <span className="text-lg font-bold text-blue-900 animate-text">
                   IntelliCredit
                 </span>
                 <span
@@ -66,10 +70,10 @@ export const TopNavbar = () => {
                 end={item.end}
                 className={({ isActive }) =>
                   cn(
-                    "whitespace-nowrap px-4 py-2 text-[15px] font-medium transition-colors",
+                    "whitespace-nowrap px-4 py-2 text-[15px] font-medium transition duration-200",
                     isActive
-                      ? "bg-[#E8F0FF] text-[#1E40AF] rounded-full"
-                      : "text-[#2F4DB8] hover:text-[#1E3A8A] hover:bg-[#EDF3FF] rounded-[16px]",
+                      ? "bg-[#E8F0FF] text-[#1E40AF] rounded-full shadow-sm"
+                      : "text-[#2F4DB8] hover:text-[#1E3A8A] hover:bg-[#E8F0FF] rounded-[16px] hover:shadow-sm",
                   )
                 }
               >

@@ -16,7 +16,7 @@ const StepCard = ({
   title: string;
   description: string;
 }) => (
-  <Card className="h-full border-slate-200 shadow-sm">
+  <Card className="h-full border-slate-200 shadow-sm transition hover:-translate-y-1 hover:shadow-lg animate-fade-in-up">
     <CardContent className="space-y-4">
       <div className="flex items-center gap-3">
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
@@ -32,9 +32,9 @@ const StepCard = ({
 );
 
 const DeveloperCard = ({ name, role }: { name: string; role: string }) => (
-  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+  <div className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg animate-fade-in-up">
     <div className="flex items-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700 transition group-hover:bg-blue-100">
         <Users className="h-5 w-5" />
       </div>
       <div>
@@ -48,6 +48,56 @@ const DeveloperCard = ({ name, role }: { name: string; role: string }) => (
 export default function AboutUs() {
   return (
     <div className="space-y-10 pb-16">
+      <section className="mx-auto w-full max-w-[1400px] px-4 md:px-6">
+        <div className="rounded-3xl border border-slate-200 bg-white p-10 shadow-sm">
+          <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900">
+                About IntelliCredit
+              </h1>
+              <p className="mt-3 max-w-2xl text-base text-slate-600">
+                Built by a team of students from JNTU Hyderabad, IntelliCredit
+                is designed to help lenders, analysts, and finance teams turn
+                financial documents into clear, actionable credit insights.
+              </p>
+            </div>
+            <div className="relative">
+              <div className="pointer-events-none absolute -top-10 -left-10 h-36 w-36 rounded-full bg-gradient-to-br from-blue-200/60 to-transparent blur-2xl" />
+              <div className="pointer-events-none absolute -bottom-10 -right-10 h-36 w-36 rounded-full bg-gradient-to-br from-indigo-200/60 to-transparent blur-2xl" />
+              <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm transition hover:-translate-y-1 hover:shadow-lg animate-fade-in-up delay-200">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Our Vision
+                </h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Make credit risk insight accessible, reliable, and fast for
+                  every decision-maker.
+                </p>
+                <div className="mt-4 grid gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1 h-2 w-2 rounded-full bg-blue-500" />
+                    <div className="text-sm text-slate-500">
+                      Data-driven analysis with audit trails
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1 h-2 w-2 rounded-full bg-blue-500" />
+                    <div className="text-sm text-slate-500">
+                      Secure workflows that respect privacy
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1 h-2 w-2 rounded-full bg-blue-500" />
+                    <div className="text-sm text-slate-500">
+                      Quick insights that keep pace with business needs
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <div className="mx-auto w-full max-w-[1400px] px-4 md:px-6">
         <div className="rounded-3xl border border-slate-200 bg-white p-10 shadow-sm">
           <h1 className="text-3xl font-bold text-slate-900">
@@ -80,10 +130,11 @@ export default function AboutUs() {
 
       <div className="mx-auto w-full max-w-[1400px] px-4 md:px-6">
         <div className="rounded-3xl border border-slate-200 bg-white p-10 shadow-sm">
-          <h2 className="text-2xl font-bold text-slate-900">Developers</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Students of JNTU Hyderabad</h2>
           <p className="mt-2 text-base text-slate-600">
-            Built by a team of full-stack engineers focused on delivering secure
-            and reliable credit analysis.
+            The IntelliCredit platform is built by a group of passionate students
+            from JNTU Hyderabad, combining academic rigor with practical
+            engineering to solve real credit risk problems.
           </p>
 
           <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -100,6 +151,7 @@ export default function AboutUs() {
           </div>
         </div>
       </div>
+
     </div>
   );
 }

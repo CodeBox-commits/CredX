@@ -53,9 +53,9 @@ const extractedRows = [
 ];
 
 const stats = [
-  { label: "Reports Analyzed", value: "500+" },
   { label: "Extraction Accuracy", value: "98%" },
   { label: "AI Insights", value: "Real-time" },
+  { label: "Fast Results", value: "< 30s" },
 ];
 
 const CreditScoreCard = ({
