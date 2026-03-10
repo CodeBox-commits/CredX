@@ -151,6 +151,9 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     animation: text-glow 4s ease infinite;
+    line-height: 1.2;
+    padding-bottom: 0.08em;
+    display: inline-block;
   }
 
   @keyframes fade-in-up {

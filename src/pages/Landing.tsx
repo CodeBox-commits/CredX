@@ -122,7 +122,7 @@ export default function Landing() {
         <div className="rounded-3xl bg-gradient-to-br from-[#eef3ff] to-white p-8 shadow-sm">
           <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
             <div className="space-y-6">
-              <h1 className="text-4xl font-bold text-slate-900 sm:text-5xl animate-text">
+              <h1 className="text-4xl font-bold text-slate-900 sm:text-5xl animate-text leading-[1.15]">
                 AI Powered Credit Intelligence
               </h1>
               <p className="max-w-xl text-base text-slate-600">
