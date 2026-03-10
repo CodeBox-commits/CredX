@@ -44,7 +44,7 @@ const AnimatedCreditMeter = ({ score }: { score: number }) => {
       <div className="flex w-full items-center justify-between">
         <div>
           <div className="text-sm font-semibold text-slate-900">
-            IntelliCredit Score
+            CredX Score
           </div>
           <div className="text-xs text-slate-500">
             AI‑driven credit strength estimate
@@ -211,7 +211,7 @@ export default function Landing() {
         <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
           <div className="mb-8 flex flex-col gap-2 text-center">
             <h2 className="text-2xl font-bold text-slate-900">
-              Why IntelliCredit?
+              Why CredX?
             </h2>
             <p className="text-sm text-slate-500 max-w-2xl mx-auto">
               Built to help credit teams speed up decisions with transparent,
@@ -301,3 +301,4 @@ export default function Landing() {
     </div>
   );
 }
+

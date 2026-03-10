@@ -21,13 +21,13 @@ export const TopNavbar = () => {
               <div className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-50">
                 <img
                   src="/favicon.jpg"
-                  alt="IntelliCredit logo"
+                  alt="CredX logo"
                   className="h-5 w-5 float-logo"
                 />
               </div>
               <div className="flex flex-col leading-tight">
                 <span className="text-lg font-bold text-blue-900 animate-text">
-                  IntelliCredit
+                  CredX
                 </span>
                 <span
                   className="mt-[-4px] text-[12px] text-slate-500"
@@ -87,3 +87,4 @@ export const TopNavbar = () => {
     </header>
   );
 };
+

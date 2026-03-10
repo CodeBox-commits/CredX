@@ -1,4 +1,4 @@
-# IntelliCredit AI — Autonomous Credit Intelligence Platform
+# CredX AI — Autonomous Credit Intelligence Platform
 
 ## Project Overview
 
@@ -20,7 +20,7 @@ Follow these steps to set up the project locally:
 git clone <YOUR_GIT_URL>
 
 # Step 2: Navigate to the project directory
-cd intellicredit-ai-platform
+cd CredX-ai-platform
 
 # Step 3: Install dependencies
 npm i
@@ -86,3 +86,4 @@ npm run build
 ```
 
 The optimized build will be created in the `dist` directory.
+

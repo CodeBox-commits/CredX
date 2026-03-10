@@ -53,10 +53,10 @@ export default function AboutUs() {
           <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
             <div>
               <h1 className="text-3xl font-bold text-slate-900">
-                About IntelliCredit
+                About CredX
               </h1>
               <p className="mt-3 max-w-2xl text-base text-slate-600">
-                Built by a team of students from JNTU Hyderabad, IntelliCredit
+                Built by a team of students from JNTU Hyderabad, CredX
                 is designed to help lenders, analysts, and finance teams turn
                 financial documents into clear, actionable credit insights.
               </p>
@@ -101,10 +101,10 @@ export default function AboutUs() {
       <div className="mx-auto w-full max-w-[1400px] px-4 md:px-6">
         <div className="rounded-3xl border border-slate-200 bg-white p-10 shadow-sm">
           <h1 className="text-3xl font-bold text-slate-900">
-            How IntelliCredit Works
+            How CredX Works
           </h1>
           <p className="mt-2 max-w-2xl text-base text-slate-600">
-            IntelliCredit turns financial documents into structured credit
+            CredX turns financial documents into structured credit
             insights using AI-powered analysis and credit risk modeling.
           </p>
 
@@ -132,7 +132,7 @@ export default function AboutUs() {
         <div className="rounded-3xl border border-slate-200 bg-white p-10 shadow-sm">
           <h2 className="text-2xl font-bold text-slate-900">Students of JNTU Hyderabad</h2>
           <p className="mt-2 text-base text-slate-600">
-            The IntelliCredit platform is built by a group of passionate students
+            The CredX platform is built by a group of passionate students
             from JNTU Hyderabad, combining academic rigor with practical
             engineering to solve real credit risk problems.
           </p>
@@ -155,3 +155,4 @@ export default function AboutUs() {
     </div>
   );
 }
+

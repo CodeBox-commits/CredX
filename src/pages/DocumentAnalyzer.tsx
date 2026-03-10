@@ -73,7 +73,7 @@ const CreditScoreCard = ({
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-sm font-semibold text-slate-500">
-            Your IntelliCredit Score
+            Your CredX Score
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-4xl font-bold text-slate-900">{score}</span>
@@ -394,3 +394,4 @@ const DocumentAnalyzer = () => {
 };
 
 export default DocumentAnalyzer;
+

@@ -30,7 +30,7 @@ const Login = () => {
       <div className="w-full max-w-[520px]">
         <div className="mb-7 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-blue-900">
-            IntelliCredit AI
+            CredX AI
           </h1>
           <p className="mt-2 text-sm font-medium text-blue-900">
             Secure Corporate Credit Evaluation Portal
@@ -159,3 +159,4 @@ const Login = () => {
 };
 
 export default Login;
+
