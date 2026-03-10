@@ -2,6 +2,7 @@ import { MetricCard } from "@/components/MetricCard";
 import { RiskGauge } from "@/components/RiskGauge";
 import { AIInsightCard } from "@/components/AIInsightCard";
 import { EventTimeline } from "@/components/EventTimeline";
+import HeroCarousel from "@/components/HeroCarousel";
 import {
   TrendingUp,
   AlertTriangle,
@@ -98,6 +99,7 @@ const monitoringRows = [
 const Dashboard = () => {
   return (
     <div className="page-shell space-y-6">
+      <HeroCarousel />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Corporate Credit Appraisal Dashboard</h1>
