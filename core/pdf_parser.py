@@ -1,128 +1,99 @@
-"""PDF parsing module using LlamaParse for structured financial documents."""
+"""PDF parsing module using pymupdf4llm for structured financial documents."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 import os
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from dotenv import load_dotenv
-from llama_parse import LlamaParse
+import pymupdf4llm
 
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class ParsedPage:
-    """Represents parsed content for a single page."""
-
-    text: str
-    page_number: Optional[int]
-    source_file: str
-    metadata: Dict[str, Any]
-
-
-@dataclass(frozen=True)
-class ParsedDocument:
-    """Represents parsed content for an entire document."""
-
-    pages: List[ParsedPage]
-
-    @property
-    def combined_text(self) -> str:
-        """Return the concatenated text across all pages."""
-        return "\n\n".join(page.text for page in self.pages)
-
-
-def _init_parser() -> LlamaParse:
-    """Initialize and return a configured LlamaParse client."""
-    # Load .env if present; required for LLAMA_CLOUD_API_KEY.
-    load_dotenv()
-
-    api_key = os.getenv("LLAMA_CLOUD_API_KEY")
-    if not api_key:
-        raise EnvironmentError(
-            "LLAMA_CLOUD_API_KEY is not set. Please configure it in your environment or .env file."
-        )
-
-    return LlamaParse(
-        api_key=api_key,
-        result_type="markdown",
-        # Ensure page boundaries are preserved for traceability.
-        split_by_page=True,
-    )
-
-
-def _normalize_metadata(
-    doc_meta: Optional[Dict[str, Any]],
+def _build_page_records(
+    page_chunks: List[Dict[str, Any]],
     file_path: str,
-) -> Dict[str, Any]:
-    """Normalize metadata and ensure source file information is present."""
-    metadata: Dict[str, Any] = dict(doc_meta or {})
-    metadata.setdefault("source_file", os.path.basename(file_path))
-    return metadata
+) -> List[Dict[str, Any]]:
+    """Normalize pymupdf4llm page chunks into the required output shape."""
+    source_file = os.path.basename(file_path)
+    records: List[Dict[str, Any]] = []
+    for chunk in page_chunks:
+        page_number = chunk.get("page_number")
+        metadata = {
+            "page_number": page_number if isinstance(page_number, int) else None,
+            "source_file": source_file,
+        }
+        records.append(
+            {
+                "text": chunk.get("text", "") or "",
+                "metadata": metadata,
+            }
+        )
+    return records
 
 
-def _to_parsed_page(doc: Any, file_path: str) -> ParsedPage:
-    """Convert a LlamaParse document into a ParsedPage."""
-    metadata = _normalize_metadata(getattr(doc, "metadata", None), file_path)
-    page_number = metadata.get("page_number")
-    source_file = metadata.get("source_file", os.path.basename(file_path))
-
-    return ParsedPage(
-        text=getattr(doc, "text", "") or "",
-        page_number=page_number if isinstance(page_number, int) else None,
-        source_file=source_file,
-        metadata=metadata,
-    )
-
-
-async def parse_financial_pdf(file_path: str) -> ParsedDocument:
+def _parse_financial_pdf_sync(file_path: str) -> List[Dict[str, Any]]:
     """
-    Parse a financial PDF using LlamaParse and return page-level results.
+    Synchronously parse a financial PDF into page-level Markdown chunks.
 
     Args:
         file_path: Path to the PDF file on disk.
 
     Returns:
-        ParsedDocument with page-level text and metadata.
+        A list of dictionaries with `text` and `metadata` keys.
 
     Raises:
         FileNotFoundError: If the input file does not exist.
-        EnvironmentError: If LLAMA_CLOUD_API_KEY is not configured.
-        Exception: For unexpected parsing errors.
+        ValueError: If the PDF yields no parseable content.
+        Exception: For unexpected parsing errors (e.g., corrupted PDFs).
     """
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"PDF file not found: {file_path}")
 
-    parser = _init_parser()
-
     try:
-        docs = await parser.aparse(file_path)
-        pages = [_to_parsed_page(doc, file_path) for doc in docs]
-        return ParsedDocument(pages=pages)
-    except Exception as exc:  # noqa: BLE001 - needed for robust pipeline behavior
+        page_chunks = pymupdf4llm.to_markdown(
+            file_path,
+            page_chunks=True,
+        )
+    except Exception as exc:  # noqa: BLE001 - robust handling for corrupted PDFs
         logger.exception("Failed to parse PDF: %s", file_path)
         raise exc
+
+    if not page_chunks:
+        raise ValueError(f"No content extracted from PDF: {file_path}")
+
+    return _build_page_records(page_chunks, file_path)
+
+
+async def parse_financial_pdf(file_path: str) -> List[Dict[str, Any]]:
+    """
+    Parse a financial PDF using pymupdf4llm and return page-level results.
+
+    Args:
+        file_path: Path to the PDF file on disk.
+
+    Returns:
+        A list of dictionaries with page-level Markdown text and metadata.
+
+    Raises:
+        FileNotFoundError: If the input file does not exist.
+        ValueError: If the PDF yields no parseable content.
+        Exception: For unexpected parsing errors (e.g., corrupted PDFs).
+    """
+    return await asyncio.to_thread(_parse_financial_pdf_sync, file_path)
 
 
 async def _demo() -> None:
     """Run a demo parse for local testing."""
     test_file = "sample_annual_report.pdf"
-    result = await parse_financial_pdf(test_file)
+    pages = await parse_financial_pdf(test_file)
 
-    print(result.combined_text[:500])
-    if result.pages:
-        print(
-            {
-                "page_number": result.pages[0].page_number,
-                "source_file": result.pages[0].source_file,
-                "metadata": result.pages[0].metadata,
-            }
-        )
+    if pages:
+        print(pages[0]["text"][:500])
+        print(pages[0]["metadata"])
 
 
 if __name__ == "__main__":
