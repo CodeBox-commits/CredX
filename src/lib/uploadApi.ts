@@ -1,32 +1,13 @@
-export type ParseSummary = {
-  parsed: boolean;
-  status: "parsed" | "skipped" | "failed";
-  reason?: string;
-  parser?: string;
-  result_type?: string;
-  page_count?: number;
-  character_count?: number;
-  artifact_path?: string;
-};
+import { analyzeFilesLocally } from "./localIngestor";
+import type { UploadMultipleResponse } from "./creditTypes";
 
-export type UploadedFileMeta = {
-  document_id: string;
-  company_id: string | null;
-  document_type: string | null;
-  original_filename: string;
-  stored_filename: string;
-  storage_path: string;
-  content_type: string | null;
-  size_bytes: number;
-  uploaded_at: string;
-  parse_summary: ParseSummary | null;
-};
-
-type UploadMultipleResponse = {
-  success: boolean;
-  count: number;
-  files: UploadedFileMeta[];
-};
+export type {
+  AnalysisHighlight,
+  AnalysisSignal,
+  ParseSummary,
+  UploadedFileMeta,
+  UploadMultipleResponse,
+} from "./creditTypes";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
 
@@ -42,15 +23,37 @@ export async function uploadMultipleFiles(params: {
   if (companyId) formData.append("company_id", companyId);
   if (documentType) formData.append("document_type", documentType);
 
-  const response = await fetch(`${API_BASE}/uploads/multiple`, {
-    method: "POST",
-    body: formData,
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE}/uploads/multiple`, {
+      method: "POST",
+      body: formData,
+    });
+  } catch {
+    return analyzeFilesLocally({ files, companyId, documentType });
+  }
 
   if (!response.ok) {
+    const contentType = response.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const payload = (await response.json()) as Record<string, unknown>;
+      const detail =
+        typeof payload.detail === "string"
+          ? payload.detail
+          : typeof payload.error === "string"
+            ? payload.error
+            : null;
+      throw new Error(detail || `Upload failed with status ${response.status}`);
+    }
+
     const message = await response.text();
     throw new Error(message || `Upload failed with status ${response.status}`);
   }
 
-  return response.json() as Promise<UploadMultipleResponse>;
+  const payload = (await response.json()) as UploadMultipleResponse;
+  return {
+    processing_mode: "backend",
+    ...payload,
+  };
 }

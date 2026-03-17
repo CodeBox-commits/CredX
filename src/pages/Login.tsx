@@ -1,6 +1,12 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  ShieldCheck,
+  Mail,
+  Lock,
+  Building2,
+  ArrowRight,
+} from "lucide-react";
 import {
   Card,
   CardContent,
@@ -11,146 +17,159 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { User, UserCog } from "lucide-react";
 
 const Login = () => {
   const navigate = useNavigate();
-  const [activeRole, setActiveRole] = useState("borrower");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [organization, setOrganization] = useState("");
+
+  const canSignIn = useMemo(
+    () => email.trim().length > 0 && password.trim().length > 0,
+    [email, password],
+  );
 
   const handleSignIn = () => {
-    if (activeRole === "manager") {
-      navigate("/dashboard");
-      return;
-    }
-    navigate("/document-analyzer");
+    if (!canSignIn) return;
+    navigate("/dashboard");
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
-      <div className="w-full max-w-[520px]">
-        <div className="mb-7 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-blue-900">
-            CredX AI
-          </h1>
-          <p className="mt-2 text-sm font-medium text-blue-900">
-            Secure Corporate Credit Evaluation Portal
-          </p>
-        </div>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#eef3ff] px-4 py-10">
+      <div className="pointer-events-none absolute -left-20 top-10 h-72 w-72 rounded-full bg-blue-200/35 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-16 right-0 h-80 w-80 rounded-full bg-sky-200/35 blur-3xl" />
 
-        <Card className="border-slate-200 bg-white shadow-md">
+      <div className="grid w-full max-w-6xl gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+        <section className="rounded-[32px] border border-white/60 bg-white/75 p-8 shadow-[0_20px_80px_rgba(35,69,163,0.12)] backdrop-blur">
+          <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-900">
+            <ShieldCheck className="h-4 w-4" />
+            Single secure workspace login
+          </div>
+
+          <div className="mt-6 space-y-4">
+            <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+              Sign in to CredX
+            </h1>
+            <p className="max-w-xl text-base text-slate-600">
+              One login now unlocks the full credit intelligence workspace,
+              including document analysis, dashboards, and CAM preparation.
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="text-sm font-semibold text-slate-900">
+                One account
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                Borrower-role split removed for a simpler sign-in flow.
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="text-sm font-semibold text-slate-900">
+                Fast access
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                Jump straight into dashboards and uploaded document reviews.
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="text-sm font-semibold text-slate-900">
+                Secure workspace
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                Designed for internal credit teams and analysts.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <Card className="border-slate-200 bg-white shadow-[0_20px_80px_rgba(35,69,163,0.14)]">
           <CardHeader className="px-8 pb-4 pt-8">
             <CardTitle className="text-2xl font-bold text-blue-900">
-              Sign In
+              Welcome back
             </CardTitle>
             <CardDescription className="text-blue-900">
-              Choose your access mode to continue
+              Use your workspace credentials to continue
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5 px-8 pb-8">
-            <Tabs value={activeRole} onValueChange={setActiveRole}>
-              <TabsList className="grid h-11 w-full grid-cols-2 bg-slate-100 p-1">
-                <TabsTrigger
-                  value="borrower"
-                  className="font-semibold data-[state=active]:text-blue-900"
-                >
-                  <User className="mr-1.5 h-4 w-4" />
-                  Corporate Borrower
-                </TabsTrigger>
-                <TabsTrigger
-                  value="manager"
-                  className="font-semibold data-[state=active]:text-blue-900"
-                >
-                  <UserCog className="mr-1.5 h-4 w-4" />
-                  Credit Manager
-                </TabsTrigger>
-              </TabsList>
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="login-email"
+                className="text-sm font-semibold text-blue-900"
+              >
+                Email
+              </Label>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  id="login-email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="credit.team@bank.com"
+                  className="h-11 border-slate-200 pl-10"
+                />
+              </div>
+            </div>
 
-              <TabsContent value="borrower" className="space-y-4 pt-4">
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="borrower-email"
-                    className="text-sm font-semibold text-blue-900"
-                  >
-                    Email
-                  </Label>
-                  <Input
-                    id="borrower-email"
-                    type="email"
-                    placeholder="borrower@company.com"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="borrower-password"
-                    className="text-sm font-semibold text-blue-900"
-                  >
-                    Password
-                  </Label>
-                  <Input
-                    id="borrower-password"
-                    type="password"
-                    placeholder="Enter password"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="borrower-cin"
-                    className="text-sm font-semibold text-blue-900"
-                  >
-                    Company CIN
-                  </Label>
-                  <Input
-                    id="borrower-cin"
-                    placeholder="L40106GJ1996PLC030533"
-                  />
-                </div>
-              </TabsContent>
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="login-password"
+                className="text-sm font-semibold text-blue-900"
+              >
+                Password
+              </Label>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  id="login-password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Enter password"
+                  className="h-11 border-slate-200 pl-10"
+                />
+              </div>
+            </div>
 
-              <TabsContent value="manager" className="space-y-4 pt-4">
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="manager-email"
-                    className="text-sm font-semibold text-blue-900"
-                  >
-                    Email
-                  </Label>
-                  <Input
-                    id="manager-email"
-                    type="email"
-                    placeholder="credit.manager@bank.com"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="manager-password"
-                    className="text-sm font-semibold text-blue-900"
-                  >
-                    Password
-                  </Label>
-                  <Input
-                    id="manager-password"
-                    type="password"
-                    placeholder="Enter password"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="manager-cin"
-                    className="text-sm font-semibold text-blue-900"
-                  >
-                    Company Registration Number
-                  </Label>
-                  <Input id="manager-cin" placeholder="L40106GJ1996PLC030533" />
-                </div>
-              </TabsContent>
-            </Tabs>
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="login-organization"
+                className="text-sm font-semibold text-blue-900"
+              >
+                Organization
+              </Label>
+              <div className="relative">
+                <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  id="login-organization"
+                  value={organization}
+                  onChange={(event) => setOrganization(event.target.value)}
+                  placeholder="CredX Internal Credit Team"
+                  className="h-11 border-slate-200 pl-10"
+                />
+              </div>
+            </div>
 
             <Button
               className="h-11 w-full bg-blue-900 text-sm font-semibold text-white hover:bg-blue-800"
               onClick={handleSignIn}
+              disabled={!canSignIn}
             >
-              Sign In
+              Continue to workspace
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
+
+            <div className="flex items-center justify-between text-sm">
+              <Link to="/" className="font-medium text-blue-900 hover:underline">
+                Back to home
+              </Link>
+              <span className="text-slate-500">
+                Single login for all users
+              </span>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -159,4 +178,3 @@ const Login = () => {
 };
 
 export default Login;
-

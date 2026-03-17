@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { Link } from "react-router-dom";
 import {
   UploadCloud,
   FileText,
@@ -7,6 +8,10 @@ import {
   BarChart2,
   Banknote,
   Receipt,
+  BrainCircuit,
+  FileCheck2,
+  SearchCheck,
+  ArrowRight,
 } from "lucide-react";
 import {
   Card,
@@ -25,7 +30,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { uploadMultipleFiles } from "@/lib/uploadApi";
+import {
+  uploadMultipleFiles,
+  type AnalysisHighlight,
+  type AnalysisSignal,
+  type UploadedFileMeta,
+} from "@/lib/uploadApi";
+import { useWorkspace } from "@/hooks/useWorkspace";
+import { AIInsightCard } from "@/components/AIInsightCard";
 
 type ResultRow = {
   document: string;
@@ -34,31 +46,75 @@ type ResultRow = {
   status: "Parsed" | "Uploaded" | "Parse Failed";
 };
 
+type FlattenedSignal = AnalysisSignal & {
+  document: string;
+};
+
+type FlattenedHighlight = AnalysisHighlight & {
+  document: string;
+};
+
 const stats = [
   { label: "Extraction Accuracy", value: "98%" },
   { label: "AI Insights", value: "Real-time" },
   { label: "Fast Results", value: "< 30s" },
 ];
 
+const severityRank: Record<AnalysisSignal["severity"], number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+};
+
+function toRiskLabel(riskLevel?: string | null): string {
+  if (!riskLevel) return "Awaiting upload";
+  return riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1);
+}
+
+function getScoreLabel(score: number | null): string {
+  if (score === null) return "Awaiting analysis";
+  if (score >= 750) return "Excellent";
+  if (score >= 680) return "Stable";
+  if (score >= 620) return "Watch";
+  return "Stressed";
+}
+
+function getSignalTone(severity: AnalysisSignal["severity"]): string {
+  if (severity === "high") return "bg-red-50 text-red-700";
+  if (severity === "medium") return "bg-amber-50 text-amber-700";
+  return "bg-emerald-50 text-emerald-700";
+}
+
+function getPillarTone(status: "waiting" | "partial" | "ready"): string {
+  if (status === "ready") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (status === "partial") return "border-amber-200 bg-amber-50 text-amber-700";
+  return "border-slate-200 bg-slate-50 text-slate-600";
+}
+
 const CreditScoreCard = ({
   score,
   riskLevel,
+  summary,
 }: {
-  score: number;
+  score: number | null;
   riskLevel: string;
+  summary: string;
 }) => {
   const circumference = 2 * Math.PI * 60;
-  const offset = circumference - (score / 900) * circumference;
+  const normalizedScore = score ?? 0;
+  const offset = circumference - (normalizedScore / 900) * circumference;
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-sm font-semibold text-slate-500">
-            Your CredX Score
+            Document Risk Score
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-bold text-slate-900">{score}</span>
+            <span className="text-4xl font-bold text-slate-900">
+              {score ?? "--"}
+            </span>
             <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
               Risk: {riskLevel}
             </span>
@@ -105,17 +161,18 @@ const CreditScoreCard = ({
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
-            <div className="text-3xl font-bold text-slate-900">{score}</div>
+            <div className="text-3xl font-bold text-slate-900">
+              {score ?? "--"}
+            </div>
             <div className="text-xs font-semibold text-slate-500">
-              Excellent
+              {getScoreLabel(score)}
             </div>
           </div>
         </div>
       </div>
 
       <div className="mt-6 rounded-xl bg-slate-50 p-4 text-xs text-slate-600">
-        + Credit history, payment trends, and financial ratios all factored into
-        your score.
+        {summary}
       </div>
     </div>
   );
@@ -127,16 +184,136 @@ const DocumentAnalyzer = () => {
   const [progress, setProgress] = useState(0);
   const [processing, setProcessing] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
-  const [rows, setRows] = useState<ResultRow[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFileMeta[]>([]);
+  const { workspace, setDocuments } = useWorkspace();
+
+  useEffect(() => {
+    setUploadedFiles(workspace.documents);
+  }, [workspace.documents]);
 
   const processingLabel = useMemo(() => {
     if (progress === 0) return "Upload files to begin ingestion and extraction.";
-    if (progress < 25) return "Running OCR on financial statements...";
-    if (progress < 55) return "Extracting Contingent Liabilities...";
-    if (progress < 85) return "Mapping litigation and covenant clauses...";
-    if (progress < 100) return "Validating extracted entities and values...";
-    return "Extraction completed successfully.";
+    if (progress < 25) return "Reading uploaded documents and preparing text extraction...";
+    if (progress < 55) return "Parsing PDF pages and identifying financial cues...";
+    if (progress < 85) return "Scoring risk signals and drafting highlights...";
+    if (progress < 100) return "Finalizing analysis output for review...";
+    return "Analysis completed successfully.";
   }, [progress]);
+
+  const parsedFiles = useMemo(
+    () =>
+      uploadedFiles.filter(
+        (file) => file.parse_summary?.status === "parsed",
+      ),
+    [uploadedFiles],
+  );
+
+  const overview = useMemo(() => {
+    if (parsedFiles.length === 0) {
+      return {
+        score: null as number | null,
+        riskLevel: "Awaiting upload",
+        summary:
+          "Upload a PDF to generate a score, review priority, and extracted risk signals.",
+      };
+    }
+
+    const summaries = parsedFiles
+      .map((file) => file.parse_summary)
+      .filter((summary): summary is NonNullable<UploadedFileMeta["parse_summary"]> =>
+        summary !== null,
+      );
+    const scores = summaries
+      .map((summary) => summary.score)
+      .filter((score): score is number => typeof score === "number");
+
+    const worstScore = scores.length > 0 ? Math.min(...scores) : null;
+    const riskLevel = summaries.some((summary) => summary.risk_level === "high")
+      ? "High"
+      : summaries.some((summary) => summary.risk_level === "medium")
+        ? "Medium"
+        : "Low";
+
+    return {
+      score: worstScore,
+      riskLevel,
+      summary:
+        summaries.find((summary) => summary.summary)?.summary ??
+        `Analyzed ${parsedFiles.length} document(s).`,
+    };
+  }, [parsedFiles]);
+
+  const topSignals = useMemo(() => {
+    const flattened = parsedFiles.flatMap((file) =>
+      (file.parse_summary?.signals ?? []).map((signal) => ({
+        ...signal,
+        document: file.original_filename,
+      })),
+    );
+
+    return flattened
+      .sort((left, right) => {
+        const severityDelta =
+          severityRank[left.severity] - severityRank[right.severity];
+        if (severityDelta !== 0) return severityDelta;
+        return left.document.localeCompare(right.document);
+      })
+      .slice(0, 4);
+  }, [parsedFiles]);
+
+  const topHighlights = useMemo(() => {
+    return parsedFiles
+      .flatMap((file) =>
+        (file.parse_summary?.highlights ?? []).map((highlight) => ({
+          ...highlight,
+          document: file.original_filename,
+        })),
+      )
+      .slice(0, 4);
+  }, [parsedFiles]);
+
+  const rows = useMemo<ResultRow[]>(() => {
+    return uploadedFiles.map((file) => {
+      const summary = file.parse_summary;
+      const status: ResultRow["status"] =
+        summary?.status === "parsed"
+          ? "Parsed"
+          : summary?.status === "failed"
+            ? "Parse Failed"
+            : "Uploaded";
+
+      const keyFinding =
+        summary?.status === "parsed"
+          ? summary.summary ??
+            summary.signals?.[0]?.label ??
+            `Parsed ${summary.detected_document_type ?? "document"}`
+          : summary?.status === "failed"
+            ? `Parse failed: ${summary.reason ?? "Unknown error"}`
+            : `Stored as ${file.stored_filename}`;
+
+      const financialImpact =
+        summary?.status === "parsed"
+          ? [
+              summary.detected_document_type,
+              typeof summary.score === "number" ? `Score ${summary.score}` : null,
+              summary.risk_level ? `${toRiskLabel(summary.risk_level)} risk` : null,
+              summary.page_count ? `${summary.page_count} page(s)` : null,
+            ]
+              .filter(Boolean)
+              .join(" | ")
+          : `${(file.size_bytes / 1024).toFixed(1)} KB`;
+
+      return {
+        document: file.original_filename,
+        keyFinding,
+        financialImpact:
+          financialImpact || `${summary?.character_count ?? 0} chars extracted`,
+        status,
+      };
+    });
+  }, [uploadedFiles]);
+
+  const hasPipelineOutput = workspace.creditModel.parsedDocuments > 0;
 
   const openFilePicker = () => {
     fileInputRef.current?.click();
@@ -146,11 +323,9 @@ const DocumentAnalyzer = () => {
     event: ChangeEvent<HTMLInputElement>,
   ) => {
     const files = Array.from(event.target.files ?? []);
-    if (files.length === 0) return;
+    if (files.length === 0 || processing) return;
 
     setUploadMessage(null);
-    if (processing) return;
-
     setProcessing(true);
     setProgress(10);
 
@@ -163,32 +338,29 @@ const DocumentAnalyzer = () => {
 
     try {
       const response = await uploadMultipleFiles({ files });
+      const parsedCount = response.files.filter(
+        (file) => file.parse_summary?.status === "parsed",
+      ).length;
+      const failedCount = response.files.filter(
+        (file) => file.parse_summary?.status === "failed",
+      ).length;
+
       clearInterval(timer);
       setProcessing(false);
       setProgress(100);
-
-      setRows(
-        response.files.map((file) => ({
-          document: file.original_filename,
-          keyFinding:
-            file.parse_summary?.status === "parsed"
-              ? `Parsed PDF (${file.parse_summary.page_count ?? 0} pages)`
-              : file.parse_summary?.status === "failed"
-                ? `Parse failed: ${file.parse_summary.reason ?? "Unknown error"}`
-                : `Stored as ${file.stored_filename}`,
-          financialImpact:
-            file.parse_summary?.status === "parsed"
-              ? `${file.parse_summary.character_count ?? 0} chars extracted`
-              : `${(file.size_bytes / 1024).toFixed(1)} KB`,
-          status:
-            file.parse_summary?.status === "parsed"
-              ? "Parsed"
-              : file.parse_summary?.status === "failed"
-                ? "Parse Failed"
-                : "Uploaded",
-        })),
+      setUploadedFiles(response.files);
+      setDocuments(response.files);
+      setUploadMessage(
+        response.processing_mode === "local"
+          ? parsedCount > 0
+            ? `Backend unreachable, so CredX switched to local browser analysis. Parsed ${parsedCount} file(s) and refreshed research, credit risk, and CAM outputs together.`
+            : `Backend unreachable, and local analysis could not fully parse ${failedCount} file(s). Review the results table for details.`
+          : parsedCount > 0
+            ? `Uploaded ${response.count} file(s). Parsed ${parsedCount} PDF(s) and refreshed all three pillars across the workspace.`
+            : failedCount > 0
+              ? `Uploaded ${response.count} file(s), but analysis failed for ${failedCount} file(s). Review the results table for details.`
+              : `Uploaded ${response.count} file(s) successfully.`,
       );
-      setUploadMessage(`Uploaded ${response.count} file(s) successfully.`);
     } catch (error) {
       clearInterval(timer);
       setProcessing(false);
@@ -243,7 +415,11 @@ const DocumentAnalyzer = () => {
                 ))}
               </div>
             </div>
-            <CreditScoreCard score={736} riskLevel="Low" />
+            <CreditScoreCard
+              score={overview.score}
+              riskLevel={overview.riskLevel}
+              summary={overview.summary}
+            />
           </div>
         </div>
       </section>
@@ -382,6 +558,389 @@ const DocumentAnalyzer = () => {
               </span>
               <span className="font-semibold text-blue-900">{progress}%</span>
             </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+          <Card className="border-slate-200 bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-blue-900">
+                Three-Pillar Pipeline Status
+              </CardTitle>
+              <CardDescription className="text-blue-900">
+                A single ingestion run now updates parsing, research, and recommendation outputs together
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-3">
+              {workspace.creditModel.pillars.map((pillar) => (
+                <div
+                  key={pillar.name}
+                  className={`rounded-2xl border p-4 ${getPillarTone(pillar.status)}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold">{pillar.name}</div>
+                    <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]">
+                      {pillar.status}
+                    </span>
+                  </div>
+                  <div className="mt-3 text-xs leading-5">{pillar.detail}</div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200 bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-blue-900">Model Readiness</CardTitle>
+              <CardDescription className="text-blue-900">
+                Shared credit model feeding both the risk page and CAM generator
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                    Score
+                  </div>
+                  <div className="mt-2 text-2xl font-bold text-slate-900">
+                    {workspace.creditModel.score}
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                    Grade
+                  </div>
+                  <div className="mt-2 text-2xl font-bold text-slate-900">
+                    {workspace.creditModel.grade}
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                    Readiness
+                  </div>
+                  <div className="mt-2 text-2xl font-bold text-slate-900">
+                    {workspace.creditModel.readiness}%
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {workspace.creditModel.factors.slice(0, 3).map((factor) => (
+                  <div
+                    key={factor.label}
+                    className="rounded-2xl border border-slate-200 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-semibold text-slate-900">
+                        {factor.label}
+                      </div>
+                      <div className="text-sm font-semibold text-blue-900">
+                        {factor.score}/100
+                      </div>
+                    </div>
+                    <div className="mt-2 text-xs leading-5 text-slate-600">
+                      {factor.detail}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-2">
+          <Card className="border-slate-200 bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-blue-900">Top Risk Signals</CardTitle>
+              <CardDescription className="text-blue-900">
+                Highest-priority cues extracted from the uploaded documents
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {topSignals.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
+                  No parsed signals yet. Upload a PDF to populate risk cues and
+                  document scoring.
+                </div>
+              ) : (
+                topSignals.map((signal: FlattenedSignal) => (
+                  <div
+                    key={`${signal.document}-${signal.label}-${signal.page_number ?? "na"}`}
+                    className="rounded-2xl border border-slate-200 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-900">
+                          {signal.label}
+                        </div>
+                        <div className="mt-1 text-sm text-slate-600">
+                          {signal.detail}
+                        </div>
+                      </div>
+                      <span
+                        className={`rounded-full px-2 py-1 text-xs font-semibold ${getSignalTone(
+                          signal.severity,
+                        )}`}
+                      >
+                        {toRiskLabel(signal.severity)}
+                      </span>
+                    </div>
+                    <div className="mt-3 text-xs text-slate-500">
+                      {signal.document}
+                      {signal.page_number ? ` | Page ${signal.page_number}` : ""}
+                    </div>
+                    {signal.excerpt ? (
+                      <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+                        {signal.excerpt}
+                      </div>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200 bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-blue-900">Review Highlights</CardTitle>
+              <CardDescription className="text-blue-900">
+                Key metadata and summary points captured during analysis
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {topHighlights.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
+                  Highlights will appear here once a document has been parsed.
+                </div>
+              ) : (
+                topHighlights.map((highlight: FlattenedHighlight) => (
+                  <div
+                    key={`${highlight.document}-${highlight.title}-${highlight.page_number ?? "na"}`}
+                    className="rounded-2xl border border-slate-200 p-4"
+                  >
+                    <div className="text-sm font-semibold text-slate-900">
+                      {highlight.title}
+                    </div>
+                    <div className="mt-1 text-sm text-slate-600">
+                      {highlight.detail}
+                    </div>
+                    <div className="mt-3 text-xs text-slate-500">
+                      {highlight.document}
+                      {highlight.page_number
+                        ? ` | Page ${highlight.page_number}`
+                        : ""}
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+          <Card className="border-slate-200 bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-900">
+                <SearchCheck className="h-5 w-5" />
+                Pillar 2: Research Agent Output
+              </CardTitle>
+              <CardDescription className="text-blue-900">
+                Secondary research and primary note integration refreshed from
+                the latest ingested documents
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!hasPipelineOutput ? (
+                <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
+                  Upload a document to generate synchronized research insights
+                  for the borrower profile.
+                </div>
+              ) : (
+                <>
+                  {workspace.aiInsights.map((insight) => (
+                    <AIInsightCard
+                      key={insight.title}
+                      title={insight.title}
+                      insight={insight.insight}
+                      severity={insight.severity}
+                      tags={insight.tags}
+                    />
+                  ))}
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {workspace.researchNews.slice(0, 2).map((item) => (
+                      <div
+                        key={`${item.source}-${item.date}-${item.title}`}
+                        className="rounded-2xl border border-slate-200 p-4"
+                      >
+                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                          {item.source} | {item.date}
+                        </div>
+                        <div className="mt-2 text-sm font-semibold text-slate-900">
+                          {item.title}
+                        </div>
+                        <div className="mt-2 text-xs text-slate-500">
+                          Sentiment score: {item.score > 0 ? "+" : ""}
+                          {item.score.toFixed(2)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <Link
+                      to="/research"
+                      className="inline-flex items-center gap-2 rounded-full bg-blue-900 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+                    >
+                      Open Research Agent
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                    <div className="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-600">
+                      Tracked company: {workspace.companyName}
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200 bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-900">
+                <BrainCircuit className="h-5 w-5" />
+                Pillar 3: Credit Risk Model
+              </CardTitle>
+              <CardDescription className="text-blue-900">
+                Lending recommendation is recalculated from the ingested signals
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!hasPipelineOutput ? (
+                <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
+                  Once documents are ingested, CredX will generate sanction
+                  recommendations, pricing cues, and the CAM draft here.
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                          Recommendation
+                        </div>
+                        <div className="mt-2 text-2xl font-bold text-slate-900">
+                          {workspace.recommendation.decision}
+                        </div>
+                        <div className="mt-2 text-sm text-slate-600">
+                          {workspace.recommendation.rationale}
+                        </div>
+                      </div>
+                      <div className="grid gap-2 text-sm text-slate-700">
+                        <div>
+                          Recommended amount:{" "}
+                          <span className="font-semibold text-blue-900">
+                            Rs {workspace.recommendation.recommendedAmountCr} Cr
+                          </span>
+                        </div>
+                        <div>
+                          Indicative rate:{" "}
+                          <span className="font-semibold text-blue-900">
+                            {workspace.recommendation.rate}%
+                          </span>
+                        </div>
+                        <div>
+                          Overall score:{" "}
+                          <span className="font-semibold text-blue-900">
+                            {workspace.overallScore}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {workspace.scenarios.map((scenario) => (
+                      <div
+                        key={scenario.label}
+                        className="rounded-2xl border border-slate-200 p-4"
+                      >
+                        <div className="text-sm font-semibold text-slate-900">
+                          {scenario.label}
+                        </div>
+                        <div className="mt-2 text-sm text-slate-600">
+                          Amount: Rs {scenario.amountCr} Cr
+                        </div>
+                        <div className="text-sm text-slate-600">
+                          PD: {scenario.pd}%
+                        </div>
+                        <div className="text-sm text-slate-600">
+                          Risk Score: {scenario.riskScore}/100
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    <Link
+                      to="/credit-risk"
+                      className="inline-flex items-center gap-2 rounded-full bg-blue-900 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+                    >
+                      Open Credit Risk Model
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                    <Link
+                      to="/cam-generator"
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      Open CAM Generator
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="border-slate-200 bg-white shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-blue-900">
+              <FileCheck2 className="h-5 w-5" />
+              Instant CAM Preview
+            </CardTitle>
+            <CardDescription className="text-blue-900">
+              Generated immediately from the same ingestion run, without needing
+              a separate manual step
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!hasPipelineOutput ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
+                Upload a document to generate the CAM summary sections
+                automatically.
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {workspace.camSections.slice(0, 3).map((section) => (
+                    <div
+                      key={section.title}
+                      className="rounded-2xl border border-slate-200 p-4"
+                    >
+                      <div className="text-sm font-semibold text-slate-900">
+                        {section.title}
+                      </div>
+                      <div className="mt-2 text-sm leading-6 text-slate-600">
+                        {section.preview}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
+                  The uploaded documents now feed all three pillars together:
+                  ingestion extracted the evidence, research synthesized the
+                  borrower context, and the recommendation engine refreshed the
+                  CAM draft immediately.
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
