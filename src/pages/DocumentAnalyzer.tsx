@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import {
   UploadCloud,
   FileText,
   CheckCircle2,
+  AlertCircle,
   BarChart2,
   Banknote,
   Receipt,
@@ -24,33 +25,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { uploadMultipleFiles } from "@/lib/uploadApi";
 
-const extractedRows = [
-  {
-    document: "FY24 Annual Report",
-    keyFinding: "Pending Litigation Rs. 50 Cr",
-    financialImpact: "Potential provisioning increase of Rs. 12 Cr",
-    status: "Extracted",
-  },
-  {
-    document: "Bank Statement Q4",
-    keyFinding: "Debt Servicing Delay observed on 2 instances",
-    financialImpact: "Estimated liquidity stress of Rs. 8 Cr",
-    status: "Extracted",
-  },
-  {
-    document: "GST Returns FY24",
-    keyFinding: "GSTR-2A vs GSTR-3B mismatch: Rs. 2.3 Cr",
-    financialImpact: "Possible revenue adjustment of Rs. 2.3 Cr",
-    status: "Extracted",
-  },
-  {
-    document: "Auditor Notes",
-    keyFinding: "Contingent Liability disclosure incomplete",
-    financialImpact: "Uncertain exposure up to Rs. 15 Cr",
-    status: "Extracted",
-  },
-];
+type ResultRow = {
+  document: string;
+  keyFinding: string;
+  financialImpact: string;
+  status: "Parsed" | "Uploaded" | "Parse Failed";
+};
 
 const stats = [
   { label: "Extraction Accuracy", value: "98%" },
@@ -141,10 +123,14 @@ const CreditScoreCard = ({
 
 const DocumentAnalyzer = () => {
   const uploadRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [progress, setProgress] = useState(0);
   const [processing, setProcessing] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [rows, setRows] = useState<ResultRow[]>([]);
 
   const processingLabel = useMemo(() => {
+    if (progress === 0) return "Upload files to begin ingestion and extraction.";
     if (progress < 25) return "Running OCR on financial statements...";
     if (progress < 55) return "Extracting Contingent Liabilities...";
     if (progress < 85) return "Mapping litigation and covenant clauses...";
@@ -152,22 +138,67 @@ const DocumentAnalyzer = () => {
     return "Extraction completed successfully.";
   }, [progress]);
 
-  const simulateProcessing = () => {
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelection = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+
+    setUploadMessage(null);
     if (processing) return;
+
     setProcessing(true);
     setProgress(10);
 
-    const timer = setInterval(() => {
+    const timer = window.setInterval(() => {
       setProgress((prev) => {
-        const next = prev + 15;
-        if (next >= 100) {
-          clearInterval(timer);
-          setProcessing(false);
-          return 100;
-        }
-        return next;
+        if (prev >= 90) return 90;
+        return prev + 10;
       });
-    }, 500);
+    }, 400);
+
+    try {
+      const response = await uploadMultipleFiles({ files });
+      clearInterval(timer);
+      setProcessing(false);
+      setProgress(100);
+
+      setRows(
+        response.files.map((file) => ({
+          document: file.original_filename,
+          keyFinding:
+            file.parse_summary?.status === "parsed"
+              ? `Parsed PDF (${file.parse_summary.page_count ?? 0} pages)`
+              : file.parse_summary?.status === "failed"
+                ? `Parse failed: ${file.parse_summary.reason ?? "Unknown error"}`
+                : `Stored as ${file.stored_filename}`,
+          financialImpact:
+            file.parse_summary?.status === "parsed"
+              ? `${file.parse_summary.character_count ?? 0} chars extracted`
+              : `${(file.size_bytes / 1024).toFixed(1)} KB`,
+          status:
+            file.parse_summary?.status === "parsed"
+              ? "Parsed"
+              : file.parse_summary?.status === "failed"
+                ? "Parse Failed"
+                : "Uploaded",
+        })),
+      );
+      setUploadMessage(`Uploaded ${response.count} file(s) successfully.`);
+    } catch (error) {
+      clearInterval(timer);
+      setProcessing(false);
+      setProgress(0);
+      const message =
+        error instanceof Error ? error.message : "Unknown upload error";
+      setUploadMessage(`Upload failed: ${message}`);
+    } finally {
+      event.target.value = "";
+    }
   };
 
   const scrollToUpload = () => {
@@ -241,19 +272,40 @@ const DocumentAnalyzer = () => {
             <div
               ref={uploadRef}
               className="group flex h-[270px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-[#d9e2ff] bg-white p-8 text-center transition hover:border-[#4f6ef7] hover:shadow-[0_8px_25px_rgba(79,110,247,0.15)]"
-              onClick={simulateProcessing}
+              onClick={openFilePicker}
             >
+              <input
+                ref={fileInputRef}
+                className="hidden"
+                type="file"
+                multiple
+                onChange={handleFileSelection}
+              />
               <UploadCloud className="mb-4 h-12 w-12 text-blue-900" />
               <p className="text-lg font-semibold text-blue-900">
-                Drag and drop files here
+                Click to upload source files
               </p>
               <p className="mt-2 text-sm text-slate-700">
-                or click to upload Annual Report and Bank Statement
+                Upload PDFs, bank statements, GST files, and related documents
               </p>
-              <Button className="mt-5 rounded-full bg-blue-900 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-800">
+              <Button
+                type="button"
+                className="mt-5 rounded-full bg-blue-900 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+              >
                 Start Extraction
               </Button>
             </div>
+            {uploadMessage ? (
+              <p
+                className={`text-sm ${
+                  uploadMessage.startsWith("Upload failed")
+                    ? "text-red-600"
+                    : "text-emerald-700"
+                }`}
+              >
+                {uploadMessage}
+              </p>
+            ) : null}
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="flex items-start gap-3 rounded-xl bg-white p-4 shadow-sm">
@@ -359,31 +411,55 @@ const DocumentAnalyzer = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {extractedRows.map((row) => (
-                  <TableRow
-                    key={`${row.document}-${row.keyFinding}`}
-                    className="odd:bg-white even:bg-slate-50/60"
-                  >
-                    <TableCell className="py-4 font-medium text-slate-800">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-blue-900" />
-                        {row.document}
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-4 text-slate-700">
-                      {row.keyFinding}
-                    </TableCell>
-                    <TableCell className="py-4 text-slate-700">
-                      {row.financialImpact}
-                    </TableCell>
-                    <TableCell className="py-4">
-                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        {row.status}
-                      </span>
+                {rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={4}
+                      className="py-10 text-center text-sm text-slate-500"
+                    >
+                      No documents processed yet. Upload files to view extracted
+                      results.
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  rows.map((row) => (
+                    <TableRow
+                      key={`${row.document}-${row.keyFinding}`}
+                      className="odd:bg-white even:bg-slate-50/60"
+                    >
+                      <TableCell className="py-4 font-medium text-slate-800">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-blue-900" />
+                          {row.document}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-4 text-slate-700">
+                        {row.keyFinding}
+                      </TableCell>
+                      <TableCell className="py-4 text-slate-700">
+                        {row.financialImpact}
+                      </TableCell>
+                      <TableCell className="py-4">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold ${
+                            row.status === "Parsed"
+                              ? "bg-emerald-50 text-emerald-700"
+                              : row.status === "Parse Failed"
+                                ? "bg-red-50 text-red-700"
+                                : "bg-blue-50 text-blue-700"
+                          }`}
+                        >
+                          {row.status === "Parse Failed" ? (
+                            <AlertCircle className="h-3.5 w-3.5" />
+                          ) : (
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          )}
+                          {row.status}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -394,4 +470,3 @@ const DocumentAnalyzer = () => {
 };
 
 export default DocumentAnalyzer;
-
