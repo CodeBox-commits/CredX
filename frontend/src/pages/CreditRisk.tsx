@@ -16,38 +16,117 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { RiskGauge } from "@/components/RiskGauge";
 import { AIInsightCard } from "@/components/AIInsightCard";
+import { WorkspaceSyncBanner } from "@/components/WorkspaceSyncBanner";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/hooks/useWorkspace";
 
+const FIVE_C_LABELS = {
+  character: "Character",
+  capacity: "Capacity",
+  capital: "Capital",
+  collateral: "Collateral",
+  conditions: "Conditions",
+} as const;
+
+function mapFiveCs(
+  fiveCs: Record<string, number>,
+) {
+  return Object.entries(fiveCs).map(([key, value]) => ({
+    metric: FIVE_C_LABELS[key as keyof typeof FIVE_C_LABELS] ?? key,
+    score: Math.round(value),
+  }));
+}
+
+function mapFeatureImportance(
+  factors: Array<{ label: string; contribution: number; impact: "positive" | "negative" }>,
+) {
+  return factors.map((factor) => ({
+    feature: factor.label,
+    importance: Math.max(16, Math.min(96, Math.round(Math.abs(factor.contribution)))),
+    impact: factor.impact,
+  }));
+}
+
+function mapDecisionTrace(
+  factors: Array<{
+    label: string;
+    impact: "positive" | "negative";
+    contribution: number;
+    detail: string;
+  }>,
+) {
+  return factors.map((factor) => ({
+    title: factor.label,
+    impact: factor.impact,
+    weight: Math.round(Math.abs(factor.contribution)),
+    detail: factor.detail,
+  }));
+}
+
 const CreditRisk = () => {
-  const { workspace, setDueDiligenceNote, setRequestedAmountCr } = useWorkspace();
+  const {
+    workspace,
+    analysis,
+    setDueDiligenceNote,
+    setRequestedAmountCr,
+    syncPlatformAnalysis,
+  } = useWorkspace();
+  const liveDecision = analysis.bundle?.decision;
+  const recommendation = liveDecision
+    ? {
+        decision: liveDecision.decision,
+        requestedAmountCr: workspace.requestedAmountCr,
+        recommendedAmountCr: liveDecision.recommended_loan_amount,
+        rate: liveDecision.suggested_interest_rate,
+        tenor:
+          liveDecision.decision === "APPROVE"
+            ? "36 months"
+            : liveDecision.decision === "CONDITIONAL APPROVAL"
+              ? "24 months"
+              : "Declined",
+        rationale: liveDecision.pricing_rationale,
+        covenants: workspace.recommendation.covenants,
+      }
+    : workspace.recommendation;
+  const liveFiveCs = liveDecision
+    ? mapFiveCs(liveDecision.five_cs)
+    : workspace.fiveCs;
+  const liveFeatureImportance = liveDecision
+    ? mapFeatureImportance(liveDecision.factors)
+    : workspace.featureImportance;
+  const liveDecisionTrace = liveDecision
+    ? mapDecisionTrace(liveDecision.factors)
+    : workspace.decisionTrace;
   const [loanAmount, setLoanAmount] = useState([workspace.requestedAmountCr]);
   const [collateralCoverage, setCollateralCoverage] = useState([180]);
-  const [interestRate, setInterestRate] = useState([workspace.recommendation.rate]);
+  const [interestRate, setInterestRate] = useState([recommendation.rate]);
   const [noteDraft, setNoteDraft] = useState(workspace.dueDiligenceNote);
 
   useEffect(() => {
     setLoanAmount([workspace.requestedAmountCr]);
-    setInterestRate([workspace.recommendation.rate]);
+    setInterestRate([recommendation.rate]);
     setNoteDraft(workspace.dueDiligenceNote);
   }, [
     workspace.requestedAmountCr,
-    workspace.recommendation.rate,
+    recommendation.rate,
     workspace.dueDiligenceNote,
   ]);
 
-  const radarData = workspace.fiveCs.map((item) => ({
+  const radarData = liveFiveCs.map((item) => ({
     metric: item.metric,
     score: item.score,
   }));
 
-  const riskScore = Math.round(((workspace.overallScore - 300) / 600) * 100);
-  const baseDefault = clamp((900 - workspace.overallScore) / 1200, 0.02, 0.24);
+  const modelScore = liveDecision?.credit_score ?? workspace.overallScore;
+  const approvalProbability =
+    liveDecision?.approval_probability ?? clamp((modelScore - 300) / 600, 0.08, 0.97);
+  const riskScore = Math.round(((modelScore - 300) / 600) * 100);
+  const baseDefault = clamp((900 - modelScore) / 1200, 0.02, 0.24);
   const adjustedDefault = clamp(
     baseDefault +
-      (loanAmount[0] - workspace.recommendation.recommendedAmountCr) * 0.0015 -
+      (loanAmount[0] - recommendation.recommendedAmountCr) * 0.0015 -
       (collateralCoverage[0] - 150) * 0.0008 -
-      (interestRate[0] - workspace.recommendation.rate) * 0.002,
+      (interestRate[0] - recommendation.rate) * 0.002,
     0.01,
     0.45,
   );
@@ -65,6 +144,10 @@ const CreditRisk = () => {
   const handleApplyNote = () => {
     setRequestedAmountCr(loanAmount[0]);
     setDueDiligenceNote(noteDraft);
+    void syncPlatformAnalysis({
+      requestedAmountCr: loanAmount[0],
+      dueDiligenceNote: noteDraft,
+    });
   };
 
   return (
@@ -75,8 +158,15 @@ const CreditRisk = () => {
           EXPLAINABLE AI CREDIT RECOMMENDATION | FIVE Cs | PRIMARY INSIGHT INTEGRATION
         </p>
         <p className="mt-2 text-xs text-muted-foreground">
-          Shared model score {workspace.creditModel.score}/900, grade {workspace.creditModel.grade}, readiness {workspace.creditModel.readiness}% from the latest ingestion run.
+          Shared model score {modelScore}/900, grade {workspace.creditModel.grade}, readiness {workspace.creditModel.readiness}% from the latest ingestion run.
         </p>
+        <div className="mt-3">
+          <WorkspaceSyncBanner
+            status={analysis.status}
+            message={analysis.message}
+            updated_at={analysis.updated_at}
+          />
+        </div>
       </div>
 
       <motion.div
@@ -93,14 +183,14 @@ const CreditRisk = () => {
               <span
                 className={cn(
                   "rounded px-2 py-0.5 text-[10px] font-mono",
-                  workspace.recommendation.decision === "APPROVE"
+                  recommendation.decision === "APPROVE"
                     ? "border border-success/30 bg-success/20 text-success"
-                    : workspace.recommendation.decision === "CONDITIONAL APPROVAL"
+                    : recommendation.decision === "CONDITIONAL APPROVAL"
                       ? "border border-warning/30 bg-warning/20 text-warning"
                       : "border border-destructive/30 bg-destructive/20 text-destructive",
                 )}
               >
-                {workspace.recommendation.decision}
+                {recommendation.decision}
               </span>
             </div>
             <p className="mb-1 text-sm font-medium">
@@ -109,19 +199,19 @@ const CreditRisk = () => {
             <p className="text-xs text-muted-foreground">
               Requested:{" "}
               <span className="font-mono text-primary numeric tabular-nums">
-                Rs {workspace.recommendation.requestedAmountCr} Cr
+                Rs {recommendation.requestedAmountCr} Cr
               </span>{" "}
               | Recommended:{" "}
               <span className="font-mono text-primary numeric tabular-nums">
-                Rs {workspace.recommendation.recommendedAmountCr} Cr
+                Rs {recommendation.recommendedAmountCr} Cr
               </span>{" "}
               | Rate:{" "}
               <span className="font-mono text-primary numeric tabular-nums">
-                {workspace.recommendation.rate}%
+                {recommendation.rate}%
               </span>{" "}
               | Tenor:{" "}
               <span className="font-mono text-primary">
-                {workspace.recommendation.tenor}
+                {recommendation.tenor}
               </span>
             </p>
             <div className="mt-3 rounded bg-secondary/50 p-3">
@@ -129,8 +219,22 @@ const CreditRisk = () => {
                 AI REASONING
               </p>
               <p className="mt-1 text-xs text-foreground">
-                {workspace.recommendation.rationale}
+                {recommendation.rationale}
               </p>
+            </div>
+            <div className="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-2">
+              <div>
+                Approval probability:{" "}
+                <span className="font-mono text-primary">
+                  {(approvalProbability * 100).toFixed(0)}%
+                </span>
+              </div>
+              <div>
+                Top risk factors:{" "}
+                <span className="text-foreground">
+                  {liveDecision?.top_risk_factors.join(", ") || "Local model synthesis"}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -162,7 +266,7 @@ const CreditRisk = () => {
             </RadarChart>
           </ResponsiveContainer>
           <div className="mt-3 space-y-2">
-            {workspace.fiveCs.map((metric) => (
+            {liveFiveCs.map((metric) => (
               <div key={metric.metric} className="flex items-center gap-2">
                 <div className="w-16 text-[10px] font-mono text-muted-foreground">
                   {metric.metric}
@@ -200,7 +304,7 @@ const CreditRisk = () => {
             Explainable AI - Feature Importance
           </p>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={workspace.featureImportance} layout="vertical">
+            <BarChart data={liveFeatureImportance} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis type="number" hide />
               <YAxis
@@ -302,9 +406,9 @@ const CreditRisk = () => {
                 <span
                   className={cn(
                     "text-sm font-bold font-mono numeric tabular-nums",
-                    adjustedDefault < 0.05
-                      ? "text-success"
-                      : adjustedDefault < 0.1
+                        adjustedDefault < 0.05
+                          ? "text-success"
+                          : adjustedDefault < 0.1
                         ? "text-warning"
                         : "text-destructive",
                   )}
@@ -423,7 +527,7 @@ const CreditRisk = () => {
             Decision Trace
           </p>
           <div className="space-y-3">
-            {workspace.decisionTrace.map((item) => (
+            {liveDecisionTrace.map((item) => (
               <div key={item.title} className="rounded-md border border-border bg-secondary/30 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-semibold text-foreground">

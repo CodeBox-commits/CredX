@@ -1,22 +1,48 @@
 import { motion } from "framer-motion";
 import { CheckCircle, Download, FileText, Printer } from "lucide-react";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { WorkspaceSyncBanner } from "@/components/WorkspaceSyncBanner";
+import type { PlatformAnalysisBundle } from "@/lib/platformTypes";
 
-function buildCamDocument(workspace: ReturnType<typeof useWorkspace>["workspace"]): string {
+function buildCamDocument(
+  workspace: ReturnType<typeof useWorkspace>["workspace"],
+  platformBundle: PlatformAnalysisBundle | null,
+): string {
+  const liveDecision = platformBundle?.decision;
+  const liveCam = platformBundle?.cam;
+  const liveResearch = platformBundle?.research;
+  const camSections = liveCam
+    ? liveCam.sections.map((section) => ({
+        title: section.title,
+        preview: section.content,
+      }))
+    : workspace.camSections;
+  const requestedAmount = workspace.requestedAmountCr;
+  const recommendedAmount =
+    liveDecision?.recommended_loan_amount ?? workspace.recommendation.recommendedAmountCr;
+  const decision = liveDecision?.decision ?? workspace.recommendation.decision;
+  const rate =
+    liveDecision?.suggested_interest_rate ?? workspace.recommendation.rate;
+  const tenor =
+    liveDecision?.decision === "APPROVE"
+      ? "36 months"
+      : liveDecision?.decision === "CONDITIONAL APPROVAL"
+        ? "24 months"
+        : workspace.recommendation.tenor;
   const header = [
     "CREDIT APPRAISAL MEMORANDUM",
     workspace.companyName,
     `CIN: ${workspace.cin}`,
     `Facility: ${workspace.facilityType}`,
-    `Requested Amount: Rs ${workspace.recommendation.requestedAmountCr} Cr`,
-    `Recommended Amount: Rs ${workspace.recommendation.recommendedAmountCr} Cr`,
-    `Decision: ${workspace.recommendation.decision}`,
-    `Indicative Rate: ${workspace.recommendation.rate}%`,
-    `Tenor: ${workspace.recommendation.tenor}`,
+    `Requested Amount: Rs ${requestedAmount} Cr`,
+    `Recommended Amount: Rs ${recommendedAmount} Cr`,
+    `Decision: ${decision}`,
+    `Indicative Rate: ${rate}%`,
+    `Tenor: ${tenor}`,
     "",
   ].join("\n");
 
-  const sections = workspace.camSections
+  const sections = camSections
     .map((section, index) => `${index + 1}. ${section.title}\n${section.preview}`)
     .join("\n\n");
 
@@ -38,12 +64,19 @@ function buildCamDocument(workspace: ReturnType<typeof useWorkspace>["workspace"
     )
     .join("\n");
 
-  const researchFindings = workspace.researchFindings
-    .map(
-      (item) =>
-        `- ${item.category.toUpperCase()}: ${item.title} - ${item.detail}`,
-    )
-    .join("\n");
+  const researchFindings = liveResearch
+    ? liveResearch.findings
+        .map(
+          (item) =>
+            `- ${item.category.toUpperCase()}: ${item.title} - ${item.detail}`,
+        )
+        .join("\n")
+    : workspace.researchFindings
+        .map(
+          (item) =>
+            `- ${item.category.toUpperCase()}: ${item.title} - ${item.detail}`,
+        )
+        .join("\n");
 
   const primaryAdjustments = workspace.primaryAdjustments
     .map(
@@ -52,12 +85,19 @@ function buildCamDocument(workspace: ReturnType<typeof useWorkspace>["workspace"
     )
     .join("\n");
 
-  const decisionTrace = workspace.decisionTrace
-    .map(
-      (item) =>
-        `- ${item.title}: ${item.impact.toUpperCase()} (${item.weight}) - ${item.detail}`,
-    )
-    .join("\n");
+  const decisionTrace = liveDecision
+    ? liveDecision.factors
+        .map(
+          (item) =>
+            `- ${item.label}: ${item.impact.toUpperCase()} (${Math.round(Math.abs(item.contribution))}) - ${item.detail}`,
+        )
+        .join("\n")
+    : workspace.decisionTrace
+        .map(
+          (item) =>
+            `- ${item.title}: ${item.impact.toUpperCase()} (${item.weight}) - ${item.detail}`,
+        )
+        .join("\n");
 
   const monitoringTriggers = workspace.monitoringTriggers
     .map(
@@ -102,12 +142,28 @@ function triggerDownload(filename: string, content: string, mimeType: string): v
 }
 
 const CAMGenerator = () => {
-  const { workspace } = useWorkspace();
+  const { workspace, analysis } = useWorkspace();
+  const liveDecision = analysis.bundle?.decision;
+  const liveCam = analysis.bundle?.cam;
+  const liveResearch = analysis.bundle?.research;
+  const camSections = liveCam
+    ? liveCam.sections.map((section) => ({
+        title: section.title,
+        preview: section.content,
+      }))
+    : workspace.camSections;
+  const modelFactors = liveDecision?.factors ?? workspace.creditModel.factors;
+  const decision = liveDecision?.decision ?? workspace.recommendation.decision;
+  const requestedAmount = workspace.requestedAmountCr;
+  const recommendedAmount =
+    liveDecision?.recommended_loan_amount ?? workspace.recommendation.recommendedAmountCr;
+  const suggestedRate =
+    liveDecision?.suggested_interest_rate ?? workspace.recommendation.rate;
 
   const handleExportWord = () => {
     triggerDownload(
       `${workspace.companyName.replace(/\s+/g, "_")}_CAM.doc`,
-      buildCamDocument(workspace),
+      buildCamDocument(workspace, analysis.bundle),
       "application/msword",
     );
   };
@@ -115,7 +171,7 @@ const CAMGenerator = () => {
   const handleExportText = () => {
     triggerDownload(
       `${workspace.companyName.replace(/\s+/g, "_")}_CAM.txt`,
-      buildCamDocument(workspace),
+      buildCamDocument(workspace, analysis.bundle),
       "text/plain;charset=utf-8",
     );
   };
@@ -132,6 +188,13 @@ const CAMGenerator = () => {
           <p className="mt-0.5 text-xs font-mono text-muted-foreground">
             AI-GENERATED CREDIT APPRAISAL MEMO | RECOMMENDATION ENGINE OUTPUT
           </p>
+          <div className="mt-3">
+            <WorkspaceSyncBanner
+              status={analysis.status}
+              message={analysis.message}
+              updated_at={analysis.updated_at}
+            />
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -180,19 +243,19 @@ const CAMGenerator = () => {
           <div className="text-center">
             <p className="text-[10px] font-mono text-muted-foreground">REQUESTED</p>
             <p className="mt-0.5 text-sm font-bold numeric tabular-nums">
-              Rs {workspace.recommendation.requestedAmountCr} Cr
+              Rs {requestedAmount} Cr
             </p>
           </div>
           <div className="text-center">
             <p className="text-[10px] font-mono text-muted-foreground">RECOMMENDED</p>
             <p className="mt-0.5 text-sm font-bold text-primary numeric tabular-nums">
-              Rs {workspace.recommendation.recommendedAmountCr} Cr
+              Rs {recommendedAmount} Cr
             </p>
           </div>
           <div className="text-center">
             <p className="text-[10px] font-mono text-muted-foreground">DECISION</p>
             <p className="mt-0.5 text-sm font-bold text-warning">
-              {workspace.recommendation.decision}
+              {decision}
             </p>
           </div>
         </div>
@@ -200,7 +263,7 @@ const CAMGenerator = () => {
           <div className="text-center">
             <p className="text-[10px] font-mono text-muted-foreground">MODEL SCORE</p>
             <p className="mt-0.5 text-sm font-bold numeric tabular-nums">
-              {workspace.creditModel.score}/900
+              {liveDecision?.credit_score ?? workspace.creditModel.score}/900
             </p>
           </div>
           <div className="text-center">
@@ -222,6 +285,19 @@ const CAMGenerator = () => {
             </p>
           </div>
         </div>
+        <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
+          {(liveCam?.export_formats ?? ["pdf", "docx"]).map((format) => (
+            <span
+              key={format}
+              className="rounded-full border border-border bg-secondary px-3 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground"
+            >
+              {format}
+            </span>
+          ))}
+          <span className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-primary">
+            Rate {suggestedRate}%
+          </span>
+        </div>
       </motion.div>
 
       <motion.div
@@ -234,11 +310,13 @@ const CAMGenerator = () => {
           Credit Model Drivers
         </p>
         <div className="grid gap-3 md:grid-cols-3">
-          {workspace.creditModel.factors.slice(0, 3).map((factor) => (
+          {modelFactors.slice(0, 3).map((factor) => (
             <div key={factor.label} className="rounded-md border border-border bg-secondary/30 p-3">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs font-semibold">{factor.label}</span>
-                <span className="text-xs font-mono text-primary">{factor.score}/100</span>
+                <span className="text-xs font-mono text-primary">
+                  {"score" in factor ? `${factor.score}/100` : Math.round(Math.abs(factor.contribution))}
+                </span>
               </div>
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                 {factor.detail}
@@ -320,7 +398,7 @@ const CAMGenerator = () => {
       </div>
 
       <div className="space-y-3">
-        {workspace.camSections.map((section, index) => (
+        {camSections.map((section, index) => (
           <motion.div
             key={section.title}
             initial={{ opacity: 0, y: 10 }}
@@ -348,6 +426,16 @@ const CAMGenerator = () => {
         transition={{ delay: 0.28 }}
         className="rounded-lg border border-border bg-card p-4"
       >
+        {liveResearch ? (
+          <div className="mb-4 rounded-md border border-primary/10 bg-primary/5 p-3">
+            <p className="text-[10px] font-mono uppercase tracking-widest text-primary">
+              Live Research Summary
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              {liveResearch.summary}
+            </p>
+          </div>
+        ) : null}
         <p className="mb-3 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
           Source Coverage
         </p>

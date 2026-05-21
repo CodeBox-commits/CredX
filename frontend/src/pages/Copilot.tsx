@@ -4,10 +4,15 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { generateCopilotReply } from "@/lib/intelliCredit";
+import { requestCopilotResponse } from "@/lib/platformApi";
+import { buildCopilotContext } from "@/lib/platformWorkspace";
+import { WorkspaceSyncBanner } from "@/components/WorkspaceSyncBanner";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+  provider?: string;
+  tokensUsed?: number;
 }
 
 const quickPrompts = [
@@ -27,27 +32,55 @@ function buildIntroMessage(companyName: string): Message {
 }
 
 const Copilot = () => {
-  const { workspace } = useWorkspace();
+  const { workspace, analysis } = useWorkspace();
   const [messages, setMessages] = useState<Message[]>([
     buildIntroMessage(workspace.companyName),
   ]);
   const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
     setMessages([buildIntroMessage(workspace.companyName)]);
   }, [workspace.companyName]);
 
-  const handleSend = (prompt?: string) => {
+  const handleSend = async (prompt?: string) => {
     const question = (prompt ?? input).trim();
-    if (!question) return;
+    if (!question || isSending) return;
 
-    const answer = generateCopilotReply(workspace, question);
     setMessages((previous) => [
       ...previous,
       { role: "user", content: question },
-      { role: "assistant", content: answer },
     ]);
     setInput("");
+    setIsSending(true);
+
+    try {
+      const response = await requestCopilotResponse({
+        question,
+        context: buildCopilotContext(workspace, analysis),
+      });
+      setMessages((previous) => [
+        ...previous,
+        {
+          role: "assistant",
+          content: response.answer,
+          provider: response.provider,
+          tokensUsed: response.tokens_used,
+        },
+      ]);
+    } catch {
+      const answer = generateCopilotReply(workspace, question);
+      setMessages((previous) => [
+        ...previous,
+        {
+          role: "assistant",
+          content: answer,
+          provider: "local-fallback",
+        },
+      ]);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -57,13 +90,21 @@ const Copilot = () => {
         <p className="mt-0.5 text-xs font-mono text-muted-foreground">
           INTERACTIVE AI ASSISTANT | RESEARCH + DOCUMENT + RECOMMENDATION CONTEXT
         </p>
+        <div className="mt-3">
+          <WorkspaceSyncBanner
+            status={analysis.status}
+            message={analysis.message}
+            updated_at={analysis.updated_at}
+          />
+        </div>
       </div>
 
       <div className="mb-4 flex flex-wrap gap-1.5">
         {quickPrompts.map((prompt) => (
           <button
             key={prompt}
-            onClick={() => handleSend(prompt)}
+            onClick={() => void handleSend(prompt)}
+            disabled={isSending}
             className="rounded-md border border-border bg-secondary px-2.5 py-1 text-[10px] font-mono text-secondary-foreground transition-all hover:border-primary/30 hover:bg-primary/5"
           >
             {prompt}
@@ -102,9 +143,20 @@ const Copilot = () => {
               )}
             >
               <div className="whitespace-pre-wrap">{message.content}</div>
+              {message.role === "assistant" && message.provider ? (
+                <div className="mt-2 text-[10px] font-mono uppercase tracking-[0.16em] text-muted-foreground">
+                  {message.provider}
+                  {message.tokensUsed ? ` | ${message.tokensUsed} tokens` : ""}
+                </div>
+              ) : null}
             </div>
           </motion.div>
         ))}
+        {isSending ? (
+          <div className="text-xs font-mono text-muted-foreground">
+            CredX Copilot is analyzing the current case context...
+          </div>
+        ) : null}
       </div>
 
       <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
@@ -112,13 +164,14 @@ const Copilot = () => {
           type="text"
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          onKeyDown={(event) => event.key === "Enter" && handleSend()}
+          onKeyDown={(event) => event.key === "Enter" && void handleSend()}
           placeholder="Ask the AI Credit Copilot..."
           className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
         <button
-          onClick={() => handleSend()}
-          className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground transition-opacity hover:opacity-90"
+          onClick={() => void handleSend()}
+          disabled={isSending}
+          className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Send className="h-4 w-4" />
         </button>

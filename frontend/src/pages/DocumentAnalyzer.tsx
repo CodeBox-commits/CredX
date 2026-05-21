@@ -38,6 +38,7 @@ import {
 } from "@/lib/uploadApi";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { AIInsightCard } from "@/components/AIInsightCard";
+import { WorkspaceSyncBanner } from "@/components/WorkspaceSyncBanner";
 
 type ResultRow = {
   document: string;
@@ -185,7 +186,13 @@ const DocumentAnalyzer = () => {
   const [processing, setProcessing] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFileMeta[]>([]);
-  const { workspace, setDocuments } = useWorkspace();
+  const {
+    workspace,
+    analysis,
+    setDocuments,
+    markAnalysisFallback,
+    syncPlatformAnalysis,
+  } = useWorkspace();
 
   useEffect(() => {
     setUploadedFiles(workspace.documents);
@@ -345,18 +352,37 @@ const DocumentAnalyzer = () => {
         (file) => file.parse_summary?.status === "failed",
       ).length;
 
+      setUploadedFiles(response.files);
+      setDocuments(response.files);
+
+      let platformMessage: string | null = null;
+      if (parsedCount > 0) {
+        setProgress(94);
+        if (response.processing_mode === "backend") {
+          const syncedAnalysis = await syncPlatformAnalysis({
+            documents: response.files,
+          });
+          platformMessage = syncedAnalysis.message;
+        } else {
+          const fallbackState = markAnalysisFallback(
+            "Browser fallback completed the document pass, so CredX is using local synthesis until live platform services are reachable again.",
+          );
+          platformMessage = fallbackState.message;
+        }
+      }
+
       clearInterval(timer);
       setProcessing(false);
       setProgress(100);
-      setUploadedFiles(response.files);
-      setDocuments(response.files);
       setUploadMessage(
         response.processing_mode === "local"
           ? parsedCount > 0
-            ? `Backend unreachable, so CredX switched to local browser analysis. Parsed ${parsedCount} file(s) and refreshed research, credit risk, and CAM outputs together.`
+            ? `Backend unreachable, so CredX switched to local browser analysis. Parsed ${parsedCount} file(s) and refreshed the local underwriting workspace.` +
+              (platformMessage ? ` ${platformMessage}` : "")
             : `Backend unreachable, and local analysis could not fully parse ${failedCount} file(s). Review the results table for details.`
           : parsedCount > 0
-            ? `Uploaded ${response.count} file(s). Parsed ${parsedCount} PDF(s) and refreshed all three pillars across the workspace.`
+            ? `Uploaded ${response.count} file(s). Parsed ${parsedCount} PDF(s) and refreshed the live underwriting stack.` +
+              (platformMessage ? ` ${platformMessage}` : "")
             : failedCount > 0
               ? `Uploaded ${response.count} file(s), but analysis failed for ${failedCount} file(s). Review the results table for details.`
               : `Uploaded ${response.count} file(s) successfully.`,
@@ -558,6 +584,11 @@ const DocumentAnalyzer = () => {
               </span>
               <span className="font-semibold text-blue-900">{progress}%</span>
             </div>
+            <WorkspaceSyncBanner
+              status={analysis.status}
+              message={analysis.message}
+              updated_at={analysis.updated_at}
+            />
           </CardContent>
         </Card>
 

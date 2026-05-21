@@ -11,20 +11,38 @@ import { cn } from "@/lib/utils";
 import { AIInsightCard } from "@/components/AIInsightCard";
 import { EventTimeline } from "@/components/EventTimeline";
 import { MetricCard } from "@/components/MetricCard";
+import { WorkspaceSyncBanner } from "@/components/WorkspaceSyncBanner";
 import { useWorkspace } from "@/hooks/useWorkspace";
 
 const CorporateResearch = () => {
-  const { workspace, setCompanyName } = useWorkspace();
+  const { workspace, analysis, setCompanyName, syncPlatformAnalysis } = useWorkspace();
   const [companyInput, setCompanyInput] = useState(workspace.companyName);
+  const liveResearch = analysis.bundle?.research;
+  const liveFraudGraph = analysis.bundle?.fraud?.graph;
+  const liveFindings = liveResearch?.findings ?? workspace.researchFindings;
+  const graphNodes =
+    liveFraudGraph?.nodes.map((node) => ({
+      name: node.label,
+      type:
+        node.type === "director"
+          ? "promoter"
+          : node.risk === "high"
+            ? "shell_suspect"
+            : "company",
+      connections: 1,
+    })) ?? workspace.networkNodes;
 
   const headlineRisk = useMemo(
-    () => workspace.topSignals[0]?.label ?? "No major signal detected",
-    [workspace.topSignals],
+    () =>
+      liveFindings[0]?.title ??
+      workspace.topSignals[0]?.label ??
+      "No major signal detected",
+    [liveFindings, workspace.topSignals],
   );
 
-  const negativeNewsCount = workspace.researchNews.filter(
-    (item) => item.sentiment === "negative",
-  ).length;
+  const negativeNewsCount = liveResearch
+    ? liveResearch.findings.filter((item) => item.severity !== "low").length
+    : workspace.researchNews.filter((item) => item.sentiment === "negative").length;
   const sourceCoverageCount = workspace.sourceCoverage.filter(
     (item) => item.available,
   ).length;
@@ -33,6 +51,7 @@ const CorporateResearch = () => {
     const nextName = companyInput.trim();
     if (!nextName) return;
     setCompanyName(nextName);
+    void syncPlatformAnalysis({ companyName: nextName });
   };
 
   return (
@@ -67,6 +86,13 @@ const CorporateResearch = () => {
             <Search className="h-3.5 w-3.5" />
             Analyze
           </button>
+        </div>
+        <div className="mt-4">
+          <WorkspaceSyncBanner
+            status={analysis.status}
+            message={analysis.message}
+            updated_at={analysis.updated_at}
+          />
         </div>
       </motion.div>
 
@@ -107,7 +133,7 @@ const CorporateResearch = () => {
             </p>
           </div>
           <div className="space-y-3">
-            {workspace.researchFindings.map((finding) => (
+            {liveFindings.map((finding) => (
               <div
                 key={`${finding.category}-${finding.title}`}
                 className="rounded-md border border-border bg-secondary/30 p-3"
@@ -158,6 +184,16 @@ const CorporateResearch = () => {
               the current borrower.
             </p>
           </div>
+          {liveResearch ? (
+            <div className="mb-4 rounded-md border border-primary/10 bg-primary/5 p-3">
+              <p className="text-xs font-semibold text-foreground">
+                Live research summary
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                {liveResearch.summary}
+              </p>
+            </div>
+          ) : null}
           <div className="space-y-3">
             {workspace.structuredSynthesis.map((item) => (
               <div
@@ -206,42 +242,64 @@ const CorporateResearch = () => {
             </p>
           </div>
           <div className="space-y-2">
-            {workspace.researchNews.map((item, index) => (
-              <motion.div
-                key={`${item.source}-${item.date}-${index}`}
-                initial={{ opacity: 0, x: -5 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className={cn(
-                  "rounded border p-2.5 text-xs",
-                  item.sentiment === "negative"
-                    ? "border-destructive/20 bg-destructive/5"
-                    : item.sentiment === "positive"
-                      ? "border-success/20 bg-success/5"
-                      : "border-border",
-                )}
-              >
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-[10px] font-mono text-muted-foreground">
-                    {item.source} | {item.date}
-                  </span>
-                  <span
-                    className={cn(
-                      "text-[10px] font-mono numeric tabular-nums",
-                      item.sentiment === "negative"
-                        ? "text-destructive"
-                        : item.sentiment === "positive"
-                          ? "text-success"
-                          : "text-muted-foreground",
-                    )}
-                  >
-                    {item.score > 0 ? "+" : ""}
-                    {item.score.toFixed(2)}
-                  </span>
-                </div>
-                <p className="font-medium">{item.title}</p>
-              </motion.div>
-            ))}
+            {liveResearch?.sources.length ? (
+              liveResearch.sources.map((item, index) => (
+                <motion.div
+                  key={`${item.source}-${index}`}
+                  initial={{ opacity: 0, x: -5 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="rounded border border-primary/10 bg-primary/5 p-2.5 text-xs"
+                >
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      {item.source}
+                    </span>
+                    <span className="text-[10px] font-mono text-primary">
+                      SOURCE
+                    </span>
+                  </div>
+                  <p className="font-medium">{item.detail}</p>
+                </motion.div>
+              ))
+            ) : (
+              workspace.researchNews.map((item, index) => (
+                <motion.div
+                  key={`${item.source}-${item.date}-${index}`}
+                  initial={{ opacity: 0, x: -5 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className={cn(
+                    "rounded border p-2.5 text-xs",
+                    item.sentiment === "negative"
+                      ? "border-destructive/20 bg-destructive/5"
+                      : item.sentiment === "positive"
+                        ? "border-success/20 bg-success/5"
+                        : "border-border",
+                  )}
+                >
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      {item.source} | {item.date}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-[10px] font-mono numeric tabular-nums",
+                        item.sentiment === "negative"
+                          ? "text-destructive"
+                          : item.sentiment === "positive"
+                            ? "text-success"
+                            : "text-muted-foreground",
+                      )}
+                    >
+                      {item.score > 0 ? "+" : ""}
+                      {item.score.toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="font-medium">{item.title}</p>
+                </motion.div>
+              ))
+            )}
           </div>
         </motion.div>
 
@@ -265,9 +323,9 @@ const CorporateResearch = () => {
               </span>
             </div>
 
-            {workspace.networkNodes.map((node, index) => {
+            {graphNodes.map((node, index) => {
               const angle =
-                (index / workspace.networkNodes.length) * 2 * Math.PI -
+                (index / graphNodes.length) * 2 * Math.PI -
                 Math.PI / 2;
               const radius = 120;
               const x = 50 + (Math.cos(angle) * radius) / 3.5;
