@@ -1,89 +1,73 @@
-# CredX AI — Autonomous Credit Intelligence Platform
+# CredX
 
-## Project Overview
+CredX is an AI-powered corporate credit intelligence platform for Indian underwriting teams. The repository is being evolved into a deployable operating system for document ingestion, research intelligence, fraud screening, explainable decisioning, CAM generation, and analyst copilot workflows.
 
-An AI-powered autonomous credit intelligence system designed for corporate lending with explainable ML, research agents, and real-time risk analytics.
+## Phase 1 Delivered
 
-## Getting Started
+- `frontend/` application boundary with the existing premium underwriting UI preserved
+- theme support and command palette for faster analyst navigation
+- modular FastAPI backend foundation across ingestion, research, fraud, scoring, CAM, and copilot domains
+- Docker, CI, environment templates, backend tests, and architecture docs
+- India-specific extraction and fraud heuristics including GST mismatch and circular-trading watch rules
 
-### Prerequisites
+## Repository Shape
 
-- Node.js (v16 or higher)
-- npm or bun package manager
+```text
+CredX/
+├── frontend/
+│   └── src/
+├── backend/
+│   └── app/
+├── docs/
+├── docker/
+├── scripts/
+└── .github/
+```
 
-### Installation and Development
+## Local Development
 
-Follow these steps to set up the project locally:
+### Frontend
 
-```sh
-# Step 1: Clone the repository
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory
-cd CredX-ai-platform
-
-# Step 3: Install dependencies
-npm i
-# or using bun
-bun install
-
-# Step 4: Start the development server
+```bash
+npm install
 npm run dev
-# or using bun
-bun run dev
 ```
 
-The development server will automatically reload on code changes, providing instant preview at `http://localhost:5173`.
+Frontend runs on `http://localhost:8080`.
 
-## Project Structure
+### Backend
 
-```
-src/
-├── components/        # Reusable UI components
-├── pages/            # Page components for different routes
-├── hooks/            # Custom React hooks
-├── lib/              # Utility functions
-└── test/             # Test files
-```
-
-## Available Scripts
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
-- `npm run test` - Run tests
-- `npm run test:watch` - Run tests in watch mode
-
-## Technologies Used
-
-This project is built with:
-
-- **Vite** - Fast build tool and dev server
-- **React** - UI library
-- **TypeScript** - Type-safe JavaScript
-- **shadcn-ui** - High-quality UI component library
-- **Tailwind CSS** - Utility-first CSS framework
-- **React Router** - Client-side routing
-- **React Query** - Data fetching and caching
-- **Framer Motion** - Animation library
-
-## Features
-
-- Dashboard with real-time analytics
-- Document analyzer for financial documents
-- Corporate research capabilities
-- Credit risk assessment
-- CAM (Corrected Cash Adjustment Model) generation
-- AI Copilot for intelligent assistance
-
-## Deployment
-
-To build for production:
-
-```sh
-npm run build
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The optimized build will be created in the `dist` directory.
+Backend runs on `http://localhost:8000`.
 
+### Full stack with Docker
+
+```bash
+copy .env.example .env
+docker compose up --build
+```
+
+## Key API Endpoints
+
+- `POST /api/v1/uploads/multiple`
+- `POST /api/v1/research/intelligence`
+- `POST /api/v1/fraud/analyze`
+- `POST /api/v1/underwriting/score`
+- `POST /api/v1/cam/preview`
+- `POST /api/v1/copilot/chat`
+
+## Architecture Notes
+
+- The strongest ideas from `Intelli_credit_platform`, `Slice-Credit-Scoring-Engine`, `CreditMind`, and `CogniCam` were synthesized into one cleaner modular backend instead of separate fragile services.
+- Explainability is a first-class concern: structured extraction, decision factors, Five Cs, pricing rationale, and fraud alerts all remain visible in API responses.
+- The current scoring path is intentionally transparent and deterministic so later XGBoost and SHAP artifacts can be added without breaking API contracts.
+
+See [Reference Synthesis](docs/architecture/reference-synthesis.md), [Underwriting Lifecycle](docs/workflows/underwriting-lifecycle.md), and [Local Stack](docs/deployment/local-stack.md).

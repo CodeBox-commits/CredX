@@ -11,6 +11,12 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+references/
+.credx-dev-*.err
+.credx-dev-*.log
+.vite-dev.err
+.vite-dev.log
 
 # Editor directories and files
 .vscode/*
@@ -29,3 +35,4 @@ backend/.env
 backend/**/__pycache__/
 backend/storage/uploads/
 backend/storage/parsed/
+backend/storage/reports/

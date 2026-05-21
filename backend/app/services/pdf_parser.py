@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .intelli_credit_analysis import analyze_parsed_text
+
 PARSED_DIR = Path(__file__).resolve().parents[2] / "storage" / "parsed"
 PARSED_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -29,13 +31,21 @@ def _parse_pdf_sync(file_path: Path, api_key: str, result_type: str) -> dict[str
         verbose=False,
     )
     documents = parser.load_data(str(file_path))
-    text_parts = [doc.text for doc in documents if getattr(doc, "text", None)]
+    pages = [
+        {
+            "page_number": index,
+            "text": getattr(doc, "text", "") or "",
+        }
+        for index, doc in enumerate(documents, start=1)
+    ]
+    text_parts = [page["text"] for page in pages if page["text"]]
     full_text = "\n\n".join(text_parts).strip()
 
     return {
         "page_count": len(documents),
         "character_count": len(full_text),
         "full_text": full_text,
+        "pages": pages,
     }
 
 
@@ -84,10 +94,16 @@ async def parse_pdf_document(file_path: Path, document_id: str) -> dict[str, Any
             "character_count": parse_result["character_count"],
             "full_text": parse_result["full_text"],
         }
+        analysis_payload = analyze_parsed_text(
+            text=parse_result["full_text"],
+            filename=file_path.name,
+            page_count=parse_result["page_count"],
+            pages=parse_result["pages"],
+        )
+        artifact_payload["analysis"] = analysis_payload
         artifact_path = _write_artifact(document_id=document_id, payload=artifact_payload)
         return {
-            "parsed": True,
-            "status": "parsed",
+            **analysis_payload,
             "parser": "llamaparse",
             "result_type": result_type,
             "page_count": parse_result["page_count"],

@@ -1,38 +1,37 @@
-# CredX Backend (FastAPI)
+# CredX Backend
 
-This backend currently includes:
+The backend is now organized as one modular FastAPI application for an AI-native underwriting platform.
 
-- FastAPI app setup
-- Health check endpoint
-- File upload endpoints for single and multiple documents
-- PDF parsing via LlamaParse (Step 3)
+## Modules
+
+- `app/api` - route layer and API contracts
+- `app/core` - app factory, settings, logging, and error handling
+- `app/extraction` - ingestion pipeline, classification, OCR fallback, financial entity parsing
+- `app/research` - promoter, litigation, sentiment, and sector intelligence synthesis
+- `app/fraud` - GST rules, relationship graph output, and fraud scoring
+- `app/scoring` - feature engineering, transparent decision logic, and explainability trace
+- `app/cam` - CAM preview generation
+- `app/ai` - provider abstraction and copilot orchestration
 
 ## Run locally
 
 ```bash
 cd backend
-python3 -m venv .venv
-source .venv/bin/activate
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env
-# Add LLAMA_CLOUD_API_KEY in .env
-.venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+copy .env.example .env
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## Endpoints
+## Key endpoints
 
 - `GET /health`
+- `GET /api/v1/platform`
 - `POST /api/v1/uploads/single`
-  - Form fields: `file`, optional `company_id`, optional `document_type`
 - `POST /api/v1/uploads/multiple`
-  - Form fields: `files`, optional `company_id`, optional `document_type`
-
-Uploaded files are stored under `backend/storage/uploads/`.
-Parsed PDF artifacts are stored under `backend/storage/parsed/`.
-
-## Step 3 behavior (LlamaParse)
-
-- PDFs are automatically parsed after upload.
-- Non-PDF files are uploaded and marked with parse status `skipped`.
-- If parser setup fails, upload still succeeds and parse status becomes `failed`.
-- Every upload response includes `parse_summary` per file.
+- `POST /api/v1/research/intelligence`
+- `POST /api/v1/fraud/analyze`
+- `POST /api/v1/underwriting/score`
+- `POST /api/v1/cam/preview`
+- `POST /api/v1/copilot/chat`
