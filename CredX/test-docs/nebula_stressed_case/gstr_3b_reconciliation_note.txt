@@ -1,0 +1,8 @@
+GSTR-3B RECONCILIATION NOTE FY25
+Nebula Components Private Limited
+
+GSTR-2A turnover: INR 171 crore
+GSTR-3B turnover: INR 186 crore
+Mismatch observed between GSTR-2A and GSTR-3B for Q4 FY25.
+The review team flagged possible revenue inflation and circular trading patterns in two distributor accounts.
+Input tax credit claim requires additional validation.
