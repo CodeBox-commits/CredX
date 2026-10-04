@@ -1,0 +1,19 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/login/page": "/login",
+  "/(workspace)/admin/page": "/admin",
+  "/page": "/",
+  "/(workspace)/cases/page": "/cases",
+  "/(workspace)/copilot/page": "/copilot",
+  "/(workspace)/jobs/page": "/jobs",
+  "/(workspace)/dashboard/page": "/dashboard",
+  "/(workspace)/cases/[id]/copilot/page": "/cases/[id]/copilot",
+  "/(workspace)/cases/[id]/documents/page": "/cases/[id]/documents",
+  "/(workspace)/cases/[id]/cam/page": "/cases/[id]/cam",
+  "/(workspace)/cases/[id]/research/page": "/cases/[id]/research",
+  "/(workspace)/cases/[id]/financials/page": "/cases/[id]/financials",
+  "/(workspace)/cases/[id]/page": "/cases/[id]",
+  "/(workspace)/cases/[id]/workspace/page": "/cases/[id]/workspace",
+  "/(workspace)/cases/[id]/decision/page": "/cases/[id]/decision",
+  "/(workspace)/cases/[id]/fraud/page": "/cases/[id]/fraud"
+}

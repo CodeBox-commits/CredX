@@ -1,0 +1,19 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/login/page": "app/login/page.js",
+  "/(workspace)/admin/page": "app/(workspace)/admin/page.js",
+  "/page": "app/page.js",
+  "/(workspace)/cases/page": "app/(workspace)/cases/page.js",
+  "/(workspace)/copilot/page": "app/(workspace)/copilot/page.js",
+  "/(workspace)/jobs/page": "app/(workspace)/jobs/page.js",
+  "/(workspace)/dashboard/page": "app/(workspace)/dashboard/page.js",
+  "/(workspace)/cases/[id]/copilot/page": "app/(workspace)/cases/[id]/copilot/page.js",
+  "/(workspace)/cases/[id]/documents/page": "app/(workspace)/cases/[id]/documents/page.js",
+  "/(workspace)/cases/[id]/cam/page": "app/(workspace)/cases/[id]/cam/page.js",
+  "/(workspace)/cases/[id]/research/page": "app/(workspace)/cases/[id]/research/page.js",
+  "/(workspace)/cases/[id]/financials/page": "app/(workspace)/cases/[id]/financials/page.js",
+  "/(workspace)/cases/[id]/page": "app/(workspace)/cases/[id]/page.js",
+  "/(workspace)/cases/[id]/workspace/page": "app/(workspace)/cases/[id]/workspace/page.js",
+  "/(workspace)/cases/[id]/decision/page": "app/(workspace)/cases/[id]/decision/page.js",
+  "/(workspace)/cases/[id]/fraud/page": "app/(workspace)/cases/[id]/fraud/page.js"
+}

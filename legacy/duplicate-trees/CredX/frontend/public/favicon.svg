@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="CredX logo">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1972E8" />
+      <stop offset="45%" stop-color="#3C95FF" />
+      <stop offset="100%" stop-color="#4AA5FF" />
+    </linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFF" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#FFF" stop-opacity="0.7" />
+    </linearGradient>
+  </defs>
+
+  <!-- Shield -->
+  <path
+    fill="url(#g)"
+    d="M60 8c-22 0-38 17-38 38v26c0 22 16 38 38 48 22-10 38-26 38-48V46c0-21-16-38-38-38z"
+  />
+  <path
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="6"
+    d="M60 14c-19 0-33 15-33 33v23c0 19 14 33 33 42 19-9 33-23 33-42V47c0-18-14-33-33-33z"
+  />
+
+  <!-- Rupee sign -->
+  <path
+    fill="white"
+    d="M50 44h20v5H57v6h11v5H57v7h-7v-7h-6v-5h6v-6h-6v-5h6v-5Z"
+  />
+
+  <!-- Upward arrow/graph -->
+  <path
+    fill="white"
+    d="M62 70l14-14 6 6-20 20-6-6 6-6Z"
+  />
+  <path
+    fill="white"
+    d="M57 82h18v6H57v-6Z"
+  />
+
+  <!-- Shine overlay -->
+  <path fill="url(#g2)" d="M24 28c18-9 60-18 72 0 0 0-18-7-72 0Z" />
+</svg>
+

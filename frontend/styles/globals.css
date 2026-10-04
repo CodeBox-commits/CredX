@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CredX design tokens — navy/cobalt primary, saffron accent, terminal-grade dark mode. */
+@layer base {
+  :root {
+    color-scheme: light;
+    --background: 214 33% 97%;
+    --surface: 0 0% 100%;
+    --foreground: 218 39% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 218 39% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 218 39% 14%;
+    --primary: 211 100% 34%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214 32% 94%;
+    --secondary-foreground: 218 39% 18%;
+    --muted: 214 30% 94%;
+    --muted-foreground: 217 13% 44%;
+    --accent: 28 92% 52%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 158 72% 34%;
+    --success-foreground: 0 0% 100%;
+    --warning: 36 92% 46%;
+    --warning-foreground: 0 0% 100%;
+    --border: 214 28% 88%;
+    --input: 214 28% 86%;
+    --ring: 211 100% 40%;
+    --radius: 0.75rem;
+    --chart-1: 211 100% 40%;
+    --chart-2: 28 92% 52%;
+    --chart-3: 158 72% 36%;
+    --chart-4: 268 60% 55%;
+    --chart-5: 191 85% 40%;
+    --grid: 214 30% 90%;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --background: 222 47% 5%;
+    --surface: 222 40% 8%;
+    --foreground: 210 40% 96%;
+    --card: 222 40% 8%;
+    --card-foreground: 210 40% 96%;
+    --popover: 222 40% 9%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 205 94% 62%;
+    --primary-foreground: 222 47% 8%;
+    --secondary: 222 30% 13%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 222 26% 12%;
+    --muted-foreground: 215 18% 66%;
+    --accent: 32 94% 58%;
+    --accent-foreground: 222 47% 8%;
+    --destructive: 0 75% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 156 64% 46%;
+    --success-foreground: 222 47% 8%;
+    --warning: 38 92% 56%;
+    --warning-foreground: 222 47% 8%;
+    --border: 220 22% 17%;
+    --input: 220 22% 20%;
+    --ring: 205 94% 62%;
+    --chart-1: 205 94% 62%;
+    --chart-2: 32 94% 58%;
+    --chart-3: 156 64% 46%;
+    --chart-4: 268 75% 72%;
+    --chart-5: 186 80% 52%;
+    --grid: 220 22% 14%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "cv11", "ss01";
+  }
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+@layer utilities {
+  .tabular { font-variant-numeric: tabular-nums; }
+  .numeric { @apply font-mono tabular; }
+  .eyebrow { @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground; }
+  .terminal-grid {
+    background-image:
+      linear-gradient(hsl(var(--grid)) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--grid)) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .glass { @apply bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/70; }
+  .scrollbar-thin { scrollbar-width: thin; scrollbar-color: hsl(var(--border)) transparent; }
+  .text-balance { text-wrap: balance; }
+  .card-hover { @apply transition-shadow duration-200 hover:shadow-[0_8px_30px_-12px_hsl(var(--primary)/0.35)]; }
+  .shimmer { @apply relative overflow-hidden; }
+  .shimmer::after {
+    content: "";
+    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-foreground/5 to-transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* Printable CAM preview */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+}
