@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ cam.title }}</title>
+  <style>
+    :root { --navy:#0b2545; --muted:#5b6b82; --line:#d9e2ef; --bg:#f6f8fc; }
+    body { font-family: "IBM Plex Sans", Arial, sans-serif; color:#14213d; max-width: 900px; margin: 32px auto; padding: 0 24px; font-size: 13px; line-height: 1.55; }
+    h1 { color: var(--navy); font-size: 24px; margin-bottom: 2px; }
+    h2 { color: var(--navy); font-size: 16px; border-bottom: 1px solid var(--line); padding-bottom: 4px; margin-top: 28px; }
+    h3 { color: var(--navy); font-size: 13px; margin: 14px 0 4px; }
+    .meta { color: var(--muted); font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 12px; }
+    th { background: var(--navy); color: #fff; text-align: left; padding: 6px 8px; }
+    td { border: 1px solid var(--line); padding: 5px 8px; vertical-align: top; }
+    tr:nth-child(even) td { background: var(--bg); }
+    .kv { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 24px; margin: 8px 0 12px; }
+    .kv div { border-bottom: 1px solid var(--line); padding: 4px 0; display: flex; justify-content: space-between; gap: 12px; }
+    .kv span { color: var(--muted); }
+    .callout { border-left: 4px solid var(--navy); background: var(--bg); padding: 10px 14px; margin: 10px 0; border-radius: 4px; }
+    .callout.positive { border-color: #0f7b4c; background: #e8f7ef; }
+    .callout.warning { border-color: #a15c00; background: #fff6e5; }
+    .callout.negative { border-color: #b42318; background: #fdecec; }
+    .comment { font-style: italic; color: #3b4a5e; }
+    caption { caption-side: top; text-align: left; color: var(--muted); font-size: 11px; padding-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <h1>{{ cam.title }}</h1>
+  <div class="meta">Reference {{ cam.reference }} · Generated {{ cam.generated_at[:10] }}{% if cam.prepared_by %} · Analyst: {{ cam.prepared_by }}{% endif %} · CONFIDENTIAL</div>
+  {% for section in cam.sections %}
+  <h2>{{ section.title }}</h2>
+    {% for block in section.blocks %}
+      {% if block.type == "paragraph" %}<p>{{ block.text }}</p>
+      {% elif block.type == "heading" %}<h3>{{ block.text }}</h3>
+      {% elif block.type == "bullets" %}<ul>{% for item in block["items"] %}<li>{{ item }}</li>{% endfor %}</ul>
+      {% elif block.type == "kv" %}<div class="kv">{% for item in block["items"] %}<div><span>{{ item.label }}</span><b>{{ item.value }}</b></div>{% endfor %}</div>
+      {% elif block.type == "callout" %}<div class="callout {{ block.tone }}"><b>{{ block.title }}</b><br />{{ block.text }}</div>
+      {% elif block.type == "table" %}
+        <table>{% if block.caption %}<caption>{{ block.caption }}</caption>{% endif %}
+          <thead><tr>{% for c in block.columns %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+          <tbody>{% for row in block.rows %}<tr>{% for c in row %}<td>{{ c }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+        </table>
+      {% endif %}
+    {% endfor %}
+    {% if section.analyst_comment %}<p class="comment">Analyst comment: {{ section.analyst_comment }}</p>{% endif %}
+  {% endfor %}
+</body>
+</html>
