@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAM — {{ company.name }} ({{ case.reference }})</title>
+<style>
+  :root { --ink: #14213d; --muted: #5b6b80; --line: #dbe3ee; --brand: #0b4f9c; --soft: #f4f7fb; }
+  * { box-sizing: border-box; }
+  body { font: 13px/1.55 "Segoe UI", Inter, Arial, sans-serif; color: var(--ink); margin: 0; background: #fff; }
+  main { max-width: 900px; margin: 0 auto; padding: 32px 24px 64px; }
+  .brand { color: var(--brand); font-weight: 700; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+  h1 { font-size: 26px; margin: 4px 0; }
+  .meta { color: var(--muted); font-size: 12px; }
+  h2 { color: var(--brand); font-size: 16px; margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; }
+  th { background: var(--soft); text-align: left; font-weight: 600; }
+  th, td { border-bottom: 1px solid var(--line); padding: 5px 8px; vertical-align: top; }
+  .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
+  .kv div { border-bottom: 1px solid var(--line); padding: 5px 0; display: flex; justify-content: space-between; gap: 12px; }
+  .kv dt { color: var(--muted); } .kv dd { margin: 0; text-align: right; }
+  .decision { border-left: 4px solid var(--brand); background: var(--soft); padding: 12px 14px; border-radius: 6px; }
+  .decision b { font-size: 15px; }
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+  .metric { border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+  .metric span { color: var(--muted); font-size: 11px; display: block; } .metric strong { font-size: 14px; }
+  .fivecs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .fivecs div { border: 1px solid var(--line); border-radius: 6px; padding: 8px; font-size: 12px; }
+  .fivecs strong { font-size: 20px; display: block; }
+  .badge { display: inline-block; border: 1px solid var(--line); border-radius: 99px; padding: 1px 9px; margin: 0 6px 6px 0; font-size: 12px; }
+  .note { color: var(--muted); font-style: italic; font-size: 12px; }
+  .comment { background: #fff7ef; border-left: 3px solid #f08a24; padding: 8px 10px; margin-top: 8px; }
+  .signoff { margin-top: 40px; }
+  @media print { main { padding: 0; } h2 { break-after: avoid; } }
+  @media (max-width: 700px) { .kv, .metrics, .fivecs { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">CredX · Credit Appraisal Memorandum</div>
+  <h1>{{ company.name }}</h1>
+  <div class="meta">{{ case.reference }} · {{ case.facility_type }} · Version {{ version }} · {{ generated_on }} · Strictly confidential</div>
+
+  {% for s in sections %}
+  <section id="{{ s.id }}">
+    <h2>{{ s.title }}</h2>
+    {% set c = s.content %}
+    {% if s.kind == "decision" %}
+      <div class="decision"><b>Recommendation: {{ c.decision }}</b><p>{{ c.narrative }}</p></div>
+      <div class="metrics">{% for m in c.metrics %}<div class="metric"><span>{{ m.label }}</span><strong>{{ m.value }}</strong></div>{% endfor %}</div>
+    {% elif s.kind == "kv" %}
+      <dl class="kv">{% for m in c %}<div><dt>{{ m.label }}</dt><dd>{{ m.value }}</dd></div>{% endfor %}</dl>
+    {% elif s.kind == "text" %}
+      <p>{{ c }}</p>
+    {% elif s.kind == "table" %}
+      <table><thead><tr>{% for h in c.header %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for r in c.rows %}<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+      {% if s.secondary %}
+      <table><thead><tr>{% for h in s.secondary.header %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for r in s.secondary.rows %}<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+      {% endif %}
+      {% if s.note %}<p class="note">{{ s.note }}</p>{% endif %}
+    {% elif s.kind == "five_cs" %}
+      <div class="fivecs">{% for x in c %}<div>{{ x.c }}<strong>{{ x.score }}</strong>{{ x.assessment }}
+        <ul>{% for e in x.evidence[:3] %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endfor %}</div>
+    {% else %}
+      <p>{{ c.summary }}</p>
+      {% for b in c.badges or [] %}<span class="badge">{{ b.label }}: <b>{{ b.value }}</b></span>{% endfor %}
+      {% if c.bullets %}<ul>{% for b in c.bullets %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
+      {% for g in c.groups or [] %}{% if g.lines %}<p><b>{{ g.title }}</b></p><ul>{% for l in g.lines %}<li>{{ l }}</li>{% endfor %}</ul>{% endif %}{% endfor %}
+    {% endif %}
+    {% if s.analyst_comment %}<p class="comment"><b>Analyst comment:</b> {{ s.analyst_comment }}</p>{% endif %}
+  </section>
+  {% endfor %}
+
+  <table class="signoff"><thead><tr><th>Prepared by (Credit Analyst)</th><th>Reviewed by (Credit Manager)</th><th>Sanctioning Authority</th></tr></thead>
+    <tbody><tr><td style="height:56px"></td><td></td><td></td></tr></tbody></table>
+</main>
+</body>
+</html>

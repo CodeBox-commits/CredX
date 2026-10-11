@@ -1,0 +1,53 @@
+# Render Blueprint — API + Celery worker built from backend/Dockerfile.
+# Database: Supabase Postgres (DATABASE_URL). Redis: Upstash (REDIS_URL). Frontend: Vercel (frontend/vercel.json).
+envVarGroups:
+  - name: credx-shared
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_JSON
+        value: "true"
+      - key: JOB_BACKEND
+        value: celery
+      - key: AUTO_CREATE_TABLES
+        value: "false"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false          # Supabase connection string (pooled, port 6543)
+      - key: REDIS_URL
+        sync: false          # Upstash rediss:// URL
+      - key: STORAGE_BACKEND
+        value: s3
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_REGION
+        value: ap-south-1
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: NEWSAPI_KEY
+        sync: false
+
+services:
+  - type: web
+    name: credx-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerCommand: /app/docker-entrypoint.sh api
+    healthCheckPath: /health
+    plan: starter
+    envVars:
+      - fromGroup: credx-shared
+      - key: SEED_DEMO
+        value: "true"        # idempotent: loads the demo portfolio only if absent
+
+  - type: worker
+    name: credx-worker
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerCommand: /app/docker-entrypoint.sh worker
+    plan: starter
+    envVars:
+      - fromGroup: credx-shared

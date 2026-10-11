@@ -1,19 +1,34 @@
-FROM python:3.11-slim
+# CredX API / worker image.  Build context: backend/
+#   docker build -t credx-api backend
+#   docker run -p 8000:8000 --env-file backend/.env credx-api            # API
+#   docker run --env-file backend/.env credx-api worker                  # Celery worker
+FROM python:3.11-slim AS base
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-WORKDIR /app
-
+# tesseract: OCR for scanned pages; libgl/libglib: OpenCV runtime used by Camelot.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential poppler-utils tesseract-ocr libgl1 \
+    && apt-get install -y --no-install-recommends tesseract-ocr libgl1 libglib2.0-0 curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+WORKDIR /app
+COPY requirements.txt ./
+RUN pip install -r requirements.txt
 
-COPY backend /app
+COPY . .
+RUN chmod +x docker-entrypoint.sh \
+    && useradd --create-home --uid 10001 credx \
+    && mkdir -p /app/storage \
+    && chown -R credx:credx /app
+USER credx
 
+ENV STORAGE_DIR=/app/storage \
+    PORT=8000
 EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 CMD curl -fsS "http://localhost:${PORT}/health" || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+CMD ["api"]

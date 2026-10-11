@@ -1,0 +1,47 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "CredX/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "main:app",
+        "--app-dir",
+        "backend",
+        "--port",
+        "8000"
+      ],
+      "port": 8000
+    },
+    {
+      "name": "frontend-live",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "frontend/node_modules/next/dist/bin/next",
+        "dev",
+        "frontend",
+        "--port",
+        "3001"
+      ],
+      "env": {
+        "NEXT_PUBLIC_DEMO_MODE": "false",
+        "NEXT_DIST_DIR": ".next-live",
+        "BACKEND_URL": "http://localhost:8000"
+      },
+      "port": 3001
+    }
+  ]
+}

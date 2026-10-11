@@ -16,15 +16,13 @@
 7. Build committee-ready CAM preview sections.
 8. Use copilot for explanation and analyst support.
 
-## Phase 1 Notes
+## How the pieces run
 
-- The pipeline is intentionally monolithic but modular.
-- Heavy external integrations are stubbed behind stable contracts so later phases can add real providers without redesigning the API.
-- Current scoring is transparent and deterministic by design; model artifact loading can be plugged into `backend/app/scoring/inference` later.
-
-## Frontend Sync Flow
-
-1. `DocumentAnalyzer` uploads files and stores parsed document metadata in the shared browser workspace.
-2. If the backend is reachable, the frontend triggers a second platform-sync pass for research, fraud, scoring, CAM, and copilot context.
-3. Synced outputs are cached separately in browser storage so the research, credit-risk, CAM, and copilot pages stay aligned to the same case state.
-4. If the platform API is unavailable, the UI falls back to local underwriting synthesis and clearly shows that fallback state in-page.
+- Uploads return immediately with one `ingest_document` job per file; jobs run on Celery (production), an
+  in-process thread pool (single container) or inline (tests) — `JOB_BACKEND` selects which.
+- With `auto_analyze=true`, the case starts `full_analysis` (research → fraud → scoring → CAM) as soon as
+  every document has settled; each step updates the job's `steps[]` so the UI shows live progress.
+- The database is the source of truth: analyst edits to financials, notes and overrides are read back by
+  every engine on the next run, and every score and CAM is versioned.
+- The web app polls active jobs and refreshes the affected views when they finish; with
+  `NEXT_PUBLIC_DEMO_MODE=true` the same UI runs against an in-browser simulation of the API.

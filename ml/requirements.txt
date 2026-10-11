@@ -1,0 +1,4 @@
+-r ../backend/requirements.txt
+shap>=0.45
+matplotlib>=3.8
+jupyterlab>=4.1

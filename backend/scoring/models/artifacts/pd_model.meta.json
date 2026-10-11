@@ -1,0 +1,230 @@
+{
+  "version": "xgb-20261011-035437",
+  "trained_at": "2026-10-11T03:54:37.044671+00:00",
+  "data_source": "synthetic:30000",
+  "features": [
+    {
+      "name": "dscr",
+      "label": "Debt service coverage",
+      "direction": -1
+    },
+    {
+      "name": "interest_coverage",
+      "label": "Interest coverage",
+      "direction": -1
+    },
+    {
+      "name": "debt_to_ebitda",
+      "label": "Debt / EBITDA",
+      "direction": 1
+    },
+    {
+      "name": "debt_equity",
+      "label": "Debt / equity",
+      "direction": 1
+    },
+    {
+      "name": "current_ratio",
+      "label": "Current ratio",
+      "direction": -1
+    },
+    {
+      "name": "ebitda_margin",
+      "label": "EBITDA margin",
+      "direction": -1
+    },
+    {
+      "name": "revenue_growth",
+      "label": "Revenue growth",
+      "direction": -1
+    },
+    {
+      "name": "receivable_days",
+      "label": "Receivable days",
+      "direction": 1
+    },
+    {
+      "name": "gst_mismatch_pct",
+      "label": "GST mismatch (2A vs 3B)",
+      "direction": 1
+    },
+    {
+      "name": "bank_bounce_count",
+      "label": "Cheque/ECS bounces",
+      "direction": 1
+    },
+    {
+      "name": "cashflow_volatility",
+      "label": "Cash-flow volatility",
+      "direction": 1
+    },
+    {
+      "name": "litigation_score",
+      "label": "Litigation intensity",
+      "direction": 1
+    },
+    {
+      "name": "promoter_sentiment",
+      "label": "Promoter & media sentiment",
+      "direction": -1
+    },
+    {
+      "name": "fraud_score",
+      "label": "Fraud risk score",
+      "direction": 1
+    },
+    {
+      "name": "promoter_pledge_pct",
+      "label": "Promoter pledge",
+      "direction": 1
+    },
+    {
+      "name": "vintage_years",
+      "label": "Business vintage",
+      "direction": -1
+    },
+    {
+      "name": "collateral_coverage",
+      "label": "Collateral coverage",
+      "direction": -1
+    },
+    {
+      "name": "sector_risk",
+      "label": "Sector risk",
+      "direction": 1
+    }
+  ],
+  "params": {
+    "objective": "binary:logistic",
+    "eval_metric": "auc",
+    "max_depth": 3,
+    "eta": 0.05,
+    "subsample": 0.85,
+    "colsample_bytree": 0.85,
+    "min_child_weight": 8,
+    "lambda": 2.0,
+    "tree_method": "hist",
+    "seed": 7,
+    "monotone_constraints": "(-1,-1,1,1,-1,-1,-1,1,1,1,1,1,-1,1,1,-1,-1,1)"
+  },
+  "trees": 500,
+  "metrics": {
+    "auc": 0.814,
+    "gini": 0.628,
+    "ks": 0.4743,
+    "brier": 0.0634,
+    "default_rate": 0.0847,
+    "test_rows": 6000
+  },
+  "global_importance": [
+    {
+      "feature": "dscr",
+      "label": "Debt service coverage",
+      "mean_abs_shap": 0.43128,
+      "gain": 53.051
+    },
+    {
+      "feature": "promoter_sentiment",
+      "label": "Promoter & media sentiment",
+      "mean_abs_shap": 0.23915,
+      "gain": 27.161
+    },
+    {
+      "feature": "collateral_coverage",
+      "label": "Collateral coverage",
+      "mean_abs_shap": 0.20694,
+      "gain": 5.781
+    },
+    {
+      "feature": "ebitda_margin",
+      "label": "EBITDA margin",
+      "mean_abs_shap": 0.20618,
+      "gain": 19.438
+    },
+    {
+      "feature": "debt_to_ebitda",
+      "label": "Debt / EBITDA",
+      "mean_abs_shap": 0.19504,
+      "gain": 22.56
+    },
+    {
+      "feature": "revenue_growth",
+      "label": "Revenue growth",
+      "mean_abs_shap": 0.19455,
+      "gain": 6.54
+    },
+    {
+      "feature": "sector_risk",
+      "label": "Sector risk",
+      "mean_abs_shap": 0.18909,
+      "gain": 4.136
+    },
+    {
+      "feature": "fraud_score",
+      "label": "Fraud risk score",
+      "mean_abs_shap": 0.15921,
+      "gain": 10.424
+    },
+    {
+      "feature": "litigation_score",
+      "label": "Litigation intensity",
+      "mean_abs_shap": 0.1406,
+      "gain": 9.032
+    },
+    {
+      "feature": "gst_mismatch_pct",
+      "label": "GST mismatch (2A vs 3B)",
+      "mean_abs_shap": 0.13508,
+      "gain": 15.619
+    },
+    {
+      "feature": "cashflow_volatility",
+      "label": "Cash-flow volatility",
+      "mean_abs_shap": 0.13424,
+      "gain": 5.984
+    },
+    {
+      "feature": "vintage_years",
+      "label": "Business vintage",
+      "mean_abs_shap": 0.13077,
+      "gain": 4.549
+    },
+    {
+      "feature": "receivable_days",
+      "label": "Receivable days",
+      "mean_abs_shap": 0.12774,
+      "gain": 4.713
+    },
+    {
+      "feature": "bank_bounce_count",
+      "label": "Cheque/ECS bounces",
+      "mean_abs_shap": 0.12515,
+      "gain": 42.462
+    },
+    {
+      "feature": "current_ratio",
+      "label": "Current ratio",
+      "mean_abs_shap": 0.11173,
+      "gain": 9.321
+    },
+    {
+      "feature": "debt_equity",
+      "label": "Debt / equity",
+      "mean_abs_shap": 0.07594,
+      "gain": 7.693
+    },
+    {
+      "feature": "promoter_pledge_pct",
+      "label": "Promoter pledge",
+      "mean_abs_shap": 0.07383,
+      "gain": 3.731
+    },
+    {
+      "feature": "interest_coverage",
+      "label": "Interest coverage",
+      "mean_abs_shap": 0.03255,
+      "gain": 9.263
+    }
+  ],
+  "training_seconds": 2.93
+}

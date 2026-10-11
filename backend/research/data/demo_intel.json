@@ -1,0 +1,31 @@
+{
+  "Sunline Processors Limited": [
+    {"title": "Sunline Processors wins multi-year dyeing contract from export garment cluster", "summary": "The Tiruppur-based processor secured a three-year job-work order, improving revenue visibility and capacity utilisation to 82%.", "source": "Demo Business Wire (fictional)", "published_at": "2025-08-14T09:00:00Z", "category": "news"},
+    {"title": "Sunline Processors commissions zero-liquid-discharge plant ahead of pollution board deadline", "summary": "Investment of ₹14 crore in effluent treatment improves compliance and reduces regulatory risk.", "source": "Demo Textile Journal (fictional)", "published_at": "2025-05-02T09:00:00Z", "category": "regulatory"},
+    {"title": "Credit rating reaffirmed at BBB+ (Stable) for Sunline Processors", "summary": "Rating reaffirmed on stable margins, improved collections and reduced working-capital borrowings.", "source": "Demo Ratings Desk (fictional)", "published_at": "2025-03-21T09:00:00Z", "category": "news"},
+    {"title": "Cotton yarn prices remain volatile, squeezing processors' margins", "summary": "Industry-wide margin pressure persists for textile processors as yarn prices swing and export demand stays uneven.", "source": "Demo Commodity Monitor (fictional)", "published_at": "2025-07-10T09:00:00Z", "category": "sector"}
+  ],
+  "Nebula Components Private Limited": [
+    {"title": "Operational creditor issues IBC demand notice to Nebula Components over ₹4.7 crore dues", "summary": "A supplier has served a Section 8 demand notice and intends to approach NCLT if dues remain unpaid.", "source": "Demo Legal Tracker (fictional)", "published_at": "2025-07-18T09:00:00Z", "category": "litigation"},
+    {"title": "Nebula Components rating outlook revised to negative on margin compression", "summary": "Rating agency cites stretched receivables, elevated debt and going-concern emphasis in the auditor's report.", "source": "Demo Ratings Desk (fictional)", "published_at": "2025-06-05T09:00:00Z", "category": "news"},
+    {"title": "GST officials examine distributor billing linked to Nebula Components", "summary": "Authorities are reviewing invoices between Nebula and two distributors over suspected circular trading and excess ITC claims.", "source": "Demo Tax Watch (fictional)", "published_at": "2025-08-01T09:00:00Z", "category": "fraud"},
+    {"title": "Promoter of Nebula Components pledges additional shares to raise working capital", "summary": "Promoter pledge rises to 46% of holding as the group seeks interim liquidity.", "source": "Demo Market Filings (fictional)", "published_at": "2025-04-22T09:00:00Z", "category": "promoter"},
+    {"title": "Auto-component makers face EV transition pressure on ICE product lines", "summary": "Smaller suppliers with ICE-heavy portfolios see order slowdowns as OEMs shift volumes.", "source": "Demo Auto Insights (fictional)", "published_at": "2025-05-30T09:00:00Z", "category": "sector"}
+  ],
+  "Aarohan Pharma Labs Private Limited": [
+    {"title": "Aarohan Pharma Labs clears USFDA inspection with zero observations", "summary": "The Hyderabad API facility received an Establishment Inspection Report with no Form 483 observations.", "source": "Demo Pharma Pulse (fictional)", "published_at": "2025-06-12T09:00:00Z", "category": "regulatory"},
+    {"title": "Aarohan Pharma approved under PLI scheme for bulk drugs", "summary": "Incentives over six years support the planned ₹60 crore capacity expansion.", "source": "Demo Policy Wire (fictional)", "published_at": "2025-02-18T09:00:00Z", "category": "news"},
+    {"title": "Aarohan Pharma reports robust 19% revenue growth, remains net-debt light", "summary": "Strong export formulations demand and improved realisations drove profitable growth.", "source": "Demo Business Wire (fictional)", "published_at": "2025-05-28T09:00:00Z", "category": "news"}
+  ],
+  "Kaveri Agro Foods Private Limited": [
+    {"title": "DGGI probes fake invoice network involving agri-trading firms in Karnataka", "summary": "Investigators allege circular trading among Kaveri Agro Foods and linked traders to inflate turnover and claim bogus ITC.", "source": "Demo Tax Watch (fictional)", "published_at": "2025-07-25T09:00:00Z", "category": "fraud"},
+    {"title": "Show-cause notice issued to Kaveri Agro Foods over ₹6.2 crore ITC mismatch", "summary": "Tax authorities issued a show-cause notice citing ITC claimed in excess of GSTR-2B.", "source": "Demo Legal Tracker (fictional)", "published_at": "2025-08-09T09:00:00Z", "category": "litigation"},
+    {"title": "Kaveri Agro director also on boards of three key trading counterparties", "summary": "Corporate filings show overlapping directorships between the borrower and its largest customer and supplier.", "source": "Demo MCA Monitor (fictional)", "published_at": "2025-06-19T09:00:00Z", "category": "mca"},
+    {"title": "Kaveri Agro Foods expands rice-milling capacity in Mandya", "summary": "The company announced a new milling line, though funding sources were not disclosed.", "source": "Demo Agri Times (fictional)", "published_at": "2025-03-03T09:00:00Z", "category": "news"}
+  ],
+  "Trikona Infraprojects Limited": [
+    {"title": "Trikona Infraprojects bags ₹410 crore state highway EPC order", "summary": "Order book now covers 2.8x trailing revenue, providing medium-term visibility.", "source": "Demo Infra Daily (fictional)", "published_at": "2025-07-02T09:00:00Z", "category": "news"},
+    {"title": "Arbitration award pending on ₹38 crore claim against state agency", "summary": "Trikona's claim for cost overruns remains under arbitration; receivables from the agency are delayed beyond 180 days.", "source": "Demo Legal Tracker (fictional)", "published_at": "2025-05-15T09:00:00Z", "category": "litigation"},
+    {"title": "Delayed government payments stretch working capital for mid-size EPC firms", "summary": "Contractors report receivable days rising as state budgets tighten.", "source": "Demo Infra Daily (fictional)", "published_at": "2025-06-20T09:00:00Z", "category": "sector"}
+  ]
+}
