@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from logging.config import fileConfig
 
-from alembic import context
-
 import models  # noqa: F401  - register all tables
+from alembic import context
 from config import get_settings
 from database.base import Base
 from database.session import get_engine

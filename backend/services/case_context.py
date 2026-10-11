@@ -94,7 +94,7 @@ def research_dict(report: ResearchReport | None) -> dict[str, Any] | None:
         "sector_outlook": report.sector_outlook, "overall_risk": report.overall_risk, "summary": report.summary,
         "sentiment_score": report.sentiment_score, "litigation_score": report.litigation_score,
         "sector_risk": (report.sector or {}).get("risk"), "sector_name": (report.sector or {}).get("name"),
-        "sector": report.sector, "mca": report.mca,
+        "sector": report.sector, "mca": report.mca or None,
         "findings": [{"category": f.category, "title": f.title, "snippet": f.snippet, "source": f.source, "url": f.url,
                       "severity": f.severity, "sentiment": f.sentiment, "provider": f.provider,
                       "published_at": f.published_at.isoformat() if f.published_at else None} for f in report.findings],

@@ -1,78 +1,56 @@
-"""Claude via the official Anthropic Python SDK.
-
-Defaults: ``claude-opus-5-5`` (adaptive thinking is always on for this model;
-depth is controlled with ``output_config.effort``) and server-side refusal
-fallbacks (``fallbacks="default"``) so a safety decline is re-routed instead of
-failing the copilot turn.
-"""
+"""Claude via the official Anthropic SDK (default model: claude-opus-5-5)."""
 
 from __future__ import annotations
 
 import time
 
+from ai.providers.base import LLMError, LLMRequest, LLMResult
 from config import get_settings
-
-from .base import LLMRequest, LLMResponse, ProviderError
 
 
 class AnthropicProvider:
     name = "anthropic"
 
     def __init__(self) -> None:
-        settings = get_settings()
-        self.model = settings.anthropic_model
+        self.settings = get_settings()
         self._client = None
-        if settings.anthropic_api_key:
-            try:
-                import anthropic
-
-                self._client = anthropic.Anthropic(
-                    api_key=settings.anthropic_api_key,
-                    timeout=settings.llm_timeout_seconds,
-                    max_retries=2,  # SDK retries 408/409/429/5xx with backoff
-                )
-            except ImportError:
-                self._client = None
 
     def available(self) -> bool:
-        return self._client is not None
+        if not self.settings.anthropic_api_key:
+            return False
+        try:
+            import anthropic  # noqa: F401
+        except ImportError:
+            return False
+        return True
 
-    def complete(self, request: LLMRequest) -> LLMResponse:
+    def _get_client(self):
+        if self._client is None:
+            import anthropic
+
+            # The SDK retries 408/409/429/5xx with backoff on its own.
+            self._client = anthropic.Anthropic(api_key=self.settings.anthropic_api_key, timeout=self.settings.ai_timeout_s,
+                                               max_retries=2)
+        return self._client
+
+    def complete(self, request: LLMRequest) -> LLMResult:
         import anthropic
 
-        settings = get_settings()
-        assert self._client is not None
         started = time.perf_counter()
         try:
-            response = self._client.beta.messages.create(
-                model=self.model,
-                max_tokens=request.max_tokens or settings.llm_max_tokens,
+            response = self._get_client().messages.create(
+                model=self.settings.anthropic_model,
+                max_tokens=max(request.max_tokens, self.settings.llm_max_tokens),
                 system=request.system,
-                messages=[m.model_dump() for m in request.messages],
-                output_config={"effort": settings.anthropic_effort},
-                betas=["server-side-fallback-2026-07-01"],
-                fallbacks="default",
+                messages=[{"role": m.role, "content": m.content} for m in request.messages],
+                output_config={"effort": self.settings.anthropic_effort},
             )
-        except anthropic.RateLimitError as exc:
-            raise ProviderError(f"Anthropic rate limited: {exc.message}", retryable=True) from exc
-        except anthropic.APIStatusError as exc:
-            raise ProviderError(f"Anthropic API error {exc.status_code}: {exc.message}",
-                                retryable=exc.status_code >= 500) from exc
-        except anthropic.APIConnectionError as exc:
-            raise ProviderError("Anthropic connection error", retryable=True) from exc
-
+        except anthropic.APIError as exc:
+            raise LLMError(f"anthropic error: {exc}") from exc
         if response.stop_reason == "refusal":
-            category = getattr(response.stop_details, "category", None) if response.stop_details else None
-            raise ProviderError(f"Claude declined the request (category: {category})", retryable=False)
-
+            raise LLMError("Claude declined the request")
         text = "".join(block.text for block in response.content if block.type == "text").strip()
         if not text:
-            raise ProviderError("Claude returned no text content", retryable=True)
-        return LLMResponse(
-            text=text,
-            provider=self.name,
-            model=response.model,
-            prompt_tokens=response.usage.input_tokens,
-            completion_tokens=response.usage.output_tokens,
-            latency_ms=int((time.perf_counter() - started) * 1000),
-        )
+            raise LLMError("anthropic returned no text")
+        return LLMResult(text, self.name, response.model, response.usage.input_tokens, response.usage.output_tokens,
+                         round((time.perf_counter() - started) * 1000, 1))

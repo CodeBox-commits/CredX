@@ -14,6 +14,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Dev builds go to a separate, git-ignored folder so `next dev` never collides with production
+  // output (and cloud-synced folders like OneDrive don't lock the files the dev server is writing).
+  // NEXT_DIST_DIR overrides both (e.g. CI or verifying a build without touching .next).
+  distDir: process.env.NEXT_DIST_DIR ?? (process.env.NODE_ENV === "development" ? ".next-dev" : ".next"),
   reactStrictMode: true,
   poweredByHeader: false,
   outputFileTracingRoot: path.resolve(process.cwd()),

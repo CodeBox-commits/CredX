@@ -1,48 +1,56 @@
-"""MCA (Ministry of Corporate Affairs) intelligence from filings and director data."""
+"""MCA / ROC intelligence: CIN decoding, company status, charges, filing compliance and directors."""
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, datetime
+from typing import Any
 
-from extraction.normalization.schema import Director, MCAProfile
+from utils.india import CIN_RE, STATE_CODES
 
-from ..types import Finding, Level
+_OWNERSHIP = {"PLC": "Public limited company", "PTC": "Private limited company", "OPC": "One person company",
+              "GOI": "Government of India company", "SGC": "State government company", "NPL": "Section 8 (not for profit)",
+              "FTC": "Subsidiary of foreign company", "ULL": "Unlimited liability company"}
+_ROC_STATES = {"MH": "Maharashtra", "GJ": "Gujarat", "KA": "Karnataka", "TN": "Tamil Nadu", "TG": "Telangana", "DL": "Delhi",
+               "WB": "West Bengal", "UP": "Uttar Pradesh", "RJ": "Rajasthan", "AP": "Andhra Pradesh", "KL": "Kerala",
+               "HR": "Haryana", "PB": "Punjab", "MP": "Madhya Pradesh", "OR": "Odisha", "BR": "Bihar", "GA": "Goa"}
 
 
-def mca_findings(mca: MCAProfile | None, directors: list[Director], incorporation_year: int | None) -> tuple[list[Finding], Level]:
-    findings: list[Finding] = []
-    points = 0
-    if mca:
-        if mca.company_status and mca.company_status.lower() not in {"active"}:
-            points += 4
-            findings.append(Finding(category="mca", title=f"MCA status: {mca.company_status}",
-                                    summary="Company is not in 'Active' status on the MCA master data.",
-                                    source_name="MCA filing", severity="CRITICAL", sentiment="NEGATIVE",
-                                    sentiment_score=-0.8, relevance=1.0, provider="documents"))
-        if mca.filing_delays:
-            points += min(3, mca.filing_delays)
-            findings.append(Finding(category="mca", title=f"{mca.filing_delays} delayed ROC filing(s)",
-                                    summary="Annual returns / financial statements were filed late with additional fees.",
-                                    source_name="MCA filing", severity="MEDIUM" if mca.filing_delays < 3 else "HIGH",
-                                    sentiment="NEGATIVE", sentiment_score=-0.3, relevance=0.8, provider="documents"))
-        open_charges = [c for c in mca.charges if c.get("status", "OPEN") == "OPEN"]
-        if open_charges:
-            total = sum(c.get("amount") or 0 for c in open_charges)
-            holders = ", ".join(sorted({c.get('holder', '?') for c in open_charges}))[:200]
-            points += 1 if len(open_charges) > 3 else 0
-            findings.append(Finding(category="mca", title=f"{len(open_charges)} open charge(s) registered with ROC",
-                                    summary=f"Charges in favour of {holders}; aggregate ₹{total:,.0f}. Verify pari-passu / ceding before sanction.",
-                                    source_name="MCA charge register", severity="LOW", relevance=0.7, provider="documents"))
-    if incorporation_year and date.today().year - incorporation_year < 3:
-        points += 2
-        findings.append(Finding(category="mca", title="Recently incorporated entity",
-                                summary=f"Incorporated in {incorporation_year}; limited operating track record.",
-                                source_name="MCA master data", severity="MEDIUM", relevance=0.7, provider="documents"))
-    busy = [d for d in directors if len(d.other_directorships) >= 8]
-    if busy:
-        points += 1
-        findings.append(Finding(category="mca", title=f"{len(busy)} director(s) with 8+ directorships",
-                                summary="High directorship counts may indicate nominee/shell structures.",
-                                source_name="MCA director data", severity="LOW", relevance=0.6, provider="documents"))
-    level: Level = "HIGH" if points >= 4 else "MEDIUM" if points >= 2 else "LOW"
-    return findings, level
+def decode_cin(cin: str | None) -> dict[str, Any] | None:
+    if not cin or not CIN_RE.fullmatch(cin.upper()):
+        return None
+    cin = cin.upper()
+    return {"listed": cin[0] == "L", "industry_code": cin[1:6], "state": _ROC_STATES.get(cin[6:8], cin[6:8]),
+            "incorporation_year": int(cin[8:12]), "ownership": _OWNERSHIP.get(cin[12:15], cin[12:15]), "registration_no": cin[15:]}
+
+
+def analyze_mca(company: dict[str, Any], mca: dict[str, Any] | None, directors: list[dict[str, Any]]) -> dict[str, Any] | None:
+    cin = company.get("cin") or None
+    details = decode_cin(cin)
+    if not mca and not details:
+        return None
+    mca = mca or {}
+    year = company.get("incorporation_year") or (details or {}).get("incorporation_year")
+    vintage = datetime.now(UTC).year - year if year else None
+    observations: list[dict[str, str]] = []
+    status = mca.get("company_status") or "active"
+    if status != "active":
+        observations.append({"severity": "CRITICAL", "text": f"ROC status is '{status.replace('_', ' ')}'"})
+    if mca.get("filings_overdue"):
+        observations.append({"severity": "HIGH", "text": "Annual filings (AOC-4 / MGT-7) are pending or overdue"})
+    open_charges = [c for c in mca.get("charges") or [] if c.get("status") != "satisfied"]
+    if len(open_charges) >= 3:
+        observations.append({"severity": "MEDIUM", "text": f"{len(open_charges)} open charges registered — check pari-passu arrangements"})
+    if vintage is not None and vintage < 3:
+        observations.append({"severity": "MEDIUM", "text": f"Recently incorporated ({vintage} years) — limited track record"})
+    company_state = company.get("state")
+    if details and company_state and details["state"] not in (company_state, None) and company_state in STATE_CODES.values():
+        observations.append({"severity": "LOW", "text": f"Registered in {details['state']}, operating from {company_state}"})
+    if len(directors) == 1:
+        observations.append({"severity": "LOW", "text": "Only one director identified in filings"})
+    if not observations:
+        observations.append({"severity": "LOW", "text": "No adverse ROC observations"})
+    return {"cin": cin, "cin_details": details, "vintage_years": vintage, "company_status": status,
+            "open_charges": [{"holder": c.get("holder"), "amount": c.get("amount"), "status": c.get("status", "open")}
+                             for c in open_charges],
+            "observations": observations, "directors": directors,
+            "paid_up_capital": mca.get("paid_up_capital"), "authorised_capital": mca.get("authorised_capital")}

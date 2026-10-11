@@ -1,41 +1,38 @@
-"""Prompt templates. Kept as plain, versioned strings so they are reviewable in PRs."""
+"""Prompt templates — plain, versioned strings so they are reviewable in pull requests."""
 
 from __future__ import annotations
 
-PROMPT_VERSION = "2026-10-01"
+import json
+from typing import Any
 
-ANALYST_SYSTEM = """You are CredX Copilot, an assistant to corporate credit analysts at an Indian bank/NBFC.
+PROMPT_VERSION = "2026-10-11"
+
+COPILOT_SYSTEM = """You are CredX Copilot, an assistant to corporate credit analysts at an Indian bank or NBFC.
 
 Ground rules:
-- Answer only from the CASE CONTEXT provided. If the context does not contain the answer, say what is missing and which document would provide it.
-- Quote figures exactly as given (Indian formatting: lakh/crore, ₹). Never invent numbers, sources or legal facts.
-- Explain risk the way a credit committee expects: cause → evidence → impact on score/decision → mitigant.
-- Use Indian lending terminology where natural (DSCR, TOL/TNW, drawing power, GSTR-2A/3B, NCLT, SMA, RBI directions).
-- Be concise: short paragraphs or bullets, no preamble. Cite evidence inline as [source: <section or document>].
-- You support the analyst; final credit decisions rest with the sanctioning authority."""
+- Answer only from the CASE DATA below. If it does not contain the answer, say what is missing and which document would provide it.
+- Quote figures exactly as given; use Indian conventions (₹, lakh, crore). Never invent numbers, sources, people or legal facts.
+- Explain risk the way a credit committee expects: cause -> evidence -> impact on score/decision -> mitigant.
+- Use Indian lending terminology where natural (DSCR, TOL/TNW, drawing power, GSTR-2A/2B vs 3B, NCLT/IBC, SMA, RBI directions).
+- Be concise: short paragraphs or bullets, no preamble. Cite evidence inline as [source: <engine, section or document>].
+- You support the analyst; the sanctioning authority makes the final credit decision."""
 
-CAM_NARRATIVE_SYSTEM = """You write sections of a Credit Appraisal Memo (CAM) for an Indian corporate lender.
-Write in formal, neutral banking prose (third person, past/present tense). Use only facts in the CASE CONTEXT.
-Do not repeat tables verbatim; interpret them. 90–160 words. No headings, no bullet points."""
+CAM_NARRATIVE_SYSTEM = """You write the executive summary of a Credit Appraisal Memo (CAM) for an Indian corporate lender.
+Formal, neutral banking prose in the third person; 120-180 words; no headings or bullet points.
+Use only facts in the CASE DATA: request, score and grade, recommendation, eligible amount and rate,
+the main strengths and concerns (SHAP drivers), fraud and research findings. Interpret, do not copy tables."""
 
-
-def case_prompt(context_text: str, question: str) -> str:
-    return f"CASE CONTEXT\n============\n{context_text}\n\nQUESTION\n========\n{question}"
-
-
-def cam_section_prompt(context_text: str, section_title: str) -> str:
-    return (
-        f"CASE CONTEXT\n============\n{context_text}\n\n"
-        f"Write the narrative paragraph for the CAM section '{section_title}'."
-    )
+RESEARCH_SUMMARY_SYSTEM = """You summarise secondary research on a corporate borrower for a credit committee.
+Use only the FINDINGS provided. 4-6 sentences covering litigation, regulatory/fraud signals, media sentiment and sector outlook.
+Cite findings inline by their number in square brackets, e.g. [1], [3]. Do not invent facts or sources."""
 
 
-RISK_EXPLANATION_REQUEST = (
-    "Explain to the credit committee why this case received its score and recommendation. "
-    "Cover the top three negative drivers, the main mitigants, and what would change the decision."
-)
-
-DOCUMENT_SUMMARY_REQUEST = (
-    "Summarise this document for a credit analyst in 5 bullets: document type and period, key figures, "
-    "red flags, positives, and follow-up questions for the borrower."
-)
+def render(template: str, **data: Any) -> str:
+    """Append the structured data block the model must ground its answer in."""
+    blocks = [template]
+    for key, value in data.items():
+        payload = json.dumps(value, default=str, ensure_ascii=False, indent=1)
+        if len(payload) > 60_000:
+            payload = payload[:60_000] + "\n... (truncated)"
+        blocks.append(f"\n{key.upper().replace('_', ' ')}\n{'=' * 12}\n{payload}")
+    return "\n".join(blocks)

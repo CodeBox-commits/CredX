@@ -1,42 +1,29 @@
 """ORM models. Importing this package registers every table on ``Base.metadata``."""
 
-from .cam import CamReport
-from .case import CaseStatus, UnderwritingCase
-from .company import Company, CompanyRelation
-from .document import Document, DocumentStatus
-from .financials import FINANCIAL_FIELDS, BankMonthly, FinancialStatement, GstReturn, TradeLink
-from .fraud import FraudAlert, FraudAssessment
-from .ops import AuditLog, CopilotMessage, Job, JobStatus, LlmUsage
-from .research import ResearchFinding, ResearchReport
-from .scoring import CreditAssessment
-from .user import User
-from .workspace import AnalystNote, CaseComment, Escalation
+from models.core import Company, CreditCase, User
+from models.documents import BankStatementSummary, Document, FinancialStatement, GstFiling
+from models.intelligence import CamReport, CreditScore, FraudAlert, FraudAnalysis, ResearchFinding, ResearchReport
+from models.workflow import AiUsage, AnalystNote, AuditLog, CopilotMessage, Escalation, Job, ManualOverride
 
 __all__ = [
-    "FINANCIAL_FIELDS",
+    "AiUsage",
     "AnalystNote",
     "AuditLog",
-    "BankMonthly",
+    "BankStatementSummary",
     "CamReport",
-    "CaseComment",
-    "CaseStatus",
     "Company",
-    "CompanyRelation",
     "CopilotMessage",
-    "CreditAssessment",
+    "CreditCase",
+    "CreditScore",
     "Document",
-    "DocumentStatus",
     "Escalation",
     "FinancialStatement",
     "FraudAlert",
-    "FraudAssessment",
-    "GstReturn",
+    "FraudAnalysis",
+    "GstFiling",
     "Job",
-    "JobStatus",
-    "LlmUsage",
+    "ManualOverride",
     "ResearchFinding",
     "ResearchReport",
-    "TradeLink",
-    "UnderwritingCase",
     "User",
 ]

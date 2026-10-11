@@ -3,6 +3,7 @@
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import type { Contribution, Overlay } from "@/types/api";
+import { APPROVE_FLOOR, CONDITIONS_FLOOR } from "@/lib/policy";
 
 interface Step {
   name: string;
@@ -56,13 +57,14 @@ export function ShapWaterfall({ base, contributions, overlays, finalScore, maxFe
       : s.delta >= 0 ? "hsl(var(--success))" : s.kind === "overlay" ? "hsl(var(--accent))" : "hsl(var(--destructive))";
 
   return (
-    <div className="h-[340px] w-full" role="img" aria-label="Score explanation waterfall">
+    <div className="h-[380px] w-full" role="img" aria-label="Score explanation waterfall">
       <ResponsiveContainer>
         <BarChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 64 }}>
           <CartesianGrid vertical={false} stroke="hsl(var(--grid))" />
-          <XAxis dataKey="name" interval={0} angle={-38} textAnchor="end" height={70} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-          <YAxis domain={[minY, maxY]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} allowDataOverflow />
-          <ReferenceLine y={680} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" label={{ value: "680", fontSize: 9, fill: "hsl(var(--muted-foreground))", position: "right" }} />
+          <XAxis dataKey="name" interval={0} angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+          <YAxis domain={[minY, maxY]} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} allowDataOverflow axisLine={false} tickLine={false} width={44} />
+          <ReferenceLine y={APPROVE_FLOOR} stroke="hsl(var(--success))" strokeDasharray="4 4" label={{ value: `Approve ${APPROVE_FLOOR}`, fontSize: 10, fill: "hsl(var(--success))", position: "insideTopRight" }} />
+          <ReferenceLine y={CONDITIONS_FLOOR} stroke="hsl(var(--warning))" strokeDasharray="4 4" label={{ value: `Conditions ${CONDITIONS_FLOOR}`, fontSize: 10, fill: "hsl(var(--warning))", position: "insideTopRight" }} />
           <Tooltip
             cursor={{ fill: "hsl(var(--muted) / 0.5)" }}
             content={({ active, payload }) => {

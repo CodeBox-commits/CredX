@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from config import get_settings
-from core.errors import UploadRejectedError
+from core.errors import ValidationFailed
 
 from .text import safe_filename
 
@@ -49,27 +49,27 @@ def validate_upload(filename: str, data: bytes) -> ValidatedUpload:
     clean = safe_filename(filename or "document")
     ext = Path(clean).suffix.lower()
     if ext not in settings.allowed_upload_extensions:
-        raise UploadRejectedError(
+        raise ValidationFailed(
             f"File type '{ext or 'unknown'}' is not allowed",
             details={"allowed": settings.allowed_upload_extensions},
         )
     if not data:
-        raise UploadRejectedError("Uploaded file is empty")
+        raise ValidationFailed("Uploaded file is empty")
     if len(data) > settings.max_upload_bytes:
-        raise UploadRejectedError(f"File exceeds the {settings.max_upload_mb} MB upload limit")
+        raise ValidationFailed(f"File exceeds the {settings.max_upload_mb} MB upload limit")
 
     signatures = _SIGNATURES.get(ext)
     if signatures and not any(data.startswith(sig) for sig in signatures):
-        raise UploadRejectedError("File content does not match its extension")
+        raise ValidationFailed("File content does not match its extension")
     if ext in _TEXT_EXTS:
         if b"\x00" in data[:4096]:
-            raise UploadRejectedError("Text upload contains binary content")
+            raise ValidationFailed("Text upload contains binary content")
         try:
             data[:4096].decode("utf-8")
         except UnicodeDecodeError as exc:
-            raise UploadRejectedError("Text uploads must be UTF-8 encoded") from exc
-    if ext == ".pdf" and b"/JavaScript" in data[:200_000] and b"/OpenAction" in data[:200_000]:
-        raise UploadRejectedError("PDFs with auto-executing JavaScript are not accepted")
+            raise ValidationFailed("Text uploads must be UTF-8 encoded") from exc
+    if ext == ".pdf" and (b"/JavaScript" in data or b"/Launch" in data):
+        raise ValidationFailed("PDFs containing embedded JavaScript or launch actions are not accepted")
 
     return ValidatedUpload(
         filename=clean,

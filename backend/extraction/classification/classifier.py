@@ -12,7 +12,7 @@ import math
 import re
 from dataclasses import dataclass
 
-from ..normalization.schema import DocType
+from models.enums import DocumentType
 
 _RULES: dict[str, list[tuple[str, float]]] = {
     "annual_report": [
@@ -77,13 +77,13 @@ _FILENAME_HINTS = {
 
 @dataclass(slots=True)
 class Classification:
-    doc_type: DocType
+    doc_type: DocumentType
     confidence: float
     signals: list[str]
     scores: dict[str, float]
 
 
-def classify_document(text: str, filename: str = "", declared_type: str | None = None) -> Classification:
+def classify(text: str, filename: str = "", declared_type: str | None = None) -> Classification:
     sample = text[:20000]
     scores: dict[str, float] = {}
     signals: dict[str, list[str]] = {}
@@ -103,11 +103,16 @@ def classify_document(text: str, filename: str = "", declared_type: str | None =
             signals.setdefault(doc_type, []).append("declared by uploader")
         scores[doc_type] = round(score, 2)
 
-    best = max(scores, key=scores.get) if scores else "unknown"
-    if scores.get(best, 0) < 2.5:
-        return Classification("unknown", 0.2, [], scores)
+    best = max(scores, key=scores.get)
+    if scores[best] < 2.5:
+        return Classification(DocumentType.OTHER, 0.2, [], scores)
+    # An annual report *contains* the financial statements, so statement keywords must not out-vote a
+    # clearly identified annual report (title + board's report).
+    if best == "financial_statement" and scores["annual_report"] >= 8:
+        best = "annual_report"
+        scores = {**scores, "annual_report": max(scores["annual_report"], scores["financial_statement"] + 1)}
 
     # Softmax over a temperature-scaled score gives a calibrated-looking confidence.
     exps = {k: math.exp(v / 3.0) for k, v in scores.items()}
     confidence = exps[best] / sum(exps.values())
-    return Classification(best, round(min(0.99, confidence), 3), signals.get(best, [])[:8], scores)  # type: ignore[arg-type]
+    return Classification(DocumentType(best), round(min(0.99, confidence), 3), signals.get(best, [])[:8], scores)

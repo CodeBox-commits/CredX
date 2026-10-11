@@ -29,14 +29,15 @@ FORUMS = [
 def extract_legal(text: str) -> dict:
     low = text.lower()
     case_types = [(label, sev) for pat, label, sev in LEGAL_CASE_TYPES if re.search(pat, low)]
-    forum = next((name for name, pat in FORUMS if re.search(pat, low)), None)
+    hits = [(m.start(), name) for name, pat in FORUMS if (m := re.search(pat, low))]
+    forum = min(hits)[1] if hits else None  # the forum mentioned first is where the matter sits
     claim = None
     for m in re.finditer(r"(?:outstanding|claim(?:ed)?|dues?|amount|sum) (?:of )?", text, re.I):
-        amounts = find_amounts(text[m.end(): m.end() + 60])
+        amounts = find_amounts(text[m.end(): m.end() + 60], money_only=True)
         if amounts:
             claim = amounts[0][0]
             break
-    if claim is None and (amounts := find_amounts(text)):
+    if claim is None and (amounts := find_amounts(text, money_only=True)):
         claim = max(a for a, _ in amounts)
     claimant = None
     if m := re.search(r"(operational creditor|financial creditor|claimant|petitioner|plaintiff|complainant)", low):
@@ -75,7 +76,7 @@ def extract_sanction(text: str) -> dict:
         lender = m.group(1).strip()
     facilities = []
     for m in re.finditer(r"(term loan|cash credit|working capital demand loan|wcdl|overdraft|letter of credit|bank guarantee|ecb|guaranteed emergency credit line|gecl)[^\n]{0,80}", low):
-        amounts = find_amounts(text[m.start(): m.end() + 40])
+        amounts = find_amounts(text[m.start(): m.end() + 40], money_only=True)
         facilities.append({"facility": m.group(1).upper() if len(m.group(1)) <= 5 else m.group(1).title(),
                            "limit": amounts[0][0] if amounts else None})
     rate = None
@@ -119,16 +120,16 @@ def extract_mca(text: str) -> dict:
     forms = sorted({f.upper().replace(" ", "-") for f in re.findall(r"\b((?:mgt|aoc|chg|dir|inc|adt|pas)[-\s]?\d{1,2}[a-z]?)\b", low)})
     charges = []
     for m in re.finditer(r"(?:charge (?:id|no\.?)[:\s]*(\d{5,10}))?[^\n]{0,60}?(?:charge holder|in favour of)[:\s]+([A-Z][A-Za-z .&]{3,60})", text):
-        amounts = find_amounts(text[m.start(): m.end() + 80])
+        amounts = find_amounts(text[m.start(): m.end() + 80], money_only=True)
         status = "satisfied" if re.search(r"satisf", text[m.end(): m.end() + 80], re.I) else "open"
         charges.append({"charge_id": m.group(1), "holder": m.group(2).strip(), "amount": amounts[0][0] if amounts else None, "status": status})
     auth = None
     if m := re.search(r"authori[sz]ed (?:share )?capital", low):
-        amounts = find_amounts(text[m.start(): m.end() + 60])
+        amounts = find_amounts(text[m.start(): m.end() + 60], money_only=True)
         auth = amounts[0][0] if amounts else None
     paid = None
     if m := re.search(r"paid[- ]up (?:share )?capital", low):
-        amounts = find_amounts(text[m.start(): m.end() + 60])
+        amounts = find_amounts(text[m.start(): m.end() + 60], money_only=True)
         paid = amounts[0][0] if amounts else None
     status = "active"
     if re.search(r"strike off|struck off", low):

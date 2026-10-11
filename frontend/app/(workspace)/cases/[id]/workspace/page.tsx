@@ -2,15 +2,14 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUpRight, Flag, MessageSquare, Pin, RefreshCw, Send, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowUpRight, ClipboardList, Flag, History, Loader2, MessageSquare, RefreshCw, Send } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { useCaseContext } from "@/components/case/case-context";
-import { SectionCard, StatusBadge, ToneBadge } from "@/components/common/primitives";
+import { AnimatedNumber, SectionCard, StatusBadge } from "@/components/common/primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,75 +18,10 @@ import { relativeTime, titleCase } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { api } from "@/services/api";
 import { useAuth } from "@/store/auth";
-import type { Note } from "@/types/api";
+import { CATEGORIES, ImpactChip, NoteItem } from "@/components/workspace/note-item";
+import { useDebounced } from "@/hooks/use-debounced";
 
-const CATEGORIES = ["site_visit", "management", "operations", "financial", "collateral", "compliance", "general"];
-const EXAMPLES = ["Factory operating at 40% capacity.", "Promoter infused ₹5 crore equity last quarter.", "Collateral verified — clear title.", "Inventory mismatch found during stock audit."];
-
-function useDebounced<T>(value: T, ms = 400) {
-  const [v, setV] = useState(value);
-  useEffect(() => { const t = setTimeout(() => setV(value), ms); return () => clearTimeout(t); }, [value, ms]);
-  return v;
-}
-
-function ImpactChip({ points }: { points: number | null | undefined }) {
-  if (points === null || points === undefined) return null;
-  return <ToneBadge tone={points < 0 ? "destructive" : points > 0 ? "success" : "muted"} className="numeric">{points > 0 ? "+" : ""}{points} pts</ToneBadge>;
-}
-
-function NoteItem({ note, replies, caseId }: { note: Note; replies: Note[]; caseId: string }) {
-  const qc = useQueryClient();
-  const { user, can } = useAuth();
-  const [reply, setReply] = useState("");
-  const [open, setOpen] = useState(false);
-  const refresh = () => qc.invalidateQueries({ queryKey: qk.notes(caseId) });
-  const effective = note.impact_points ?? note.inferred_impact ?? note.preview_impact;
-  const mine = note.author?.id === user?.id || can("credit_manager");
-  return (
-    <motion.li layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="relative ml-5 border-l border-border pb-5 pl-5">
-      <span className={cn("absolute -left-[7px] top-1 h-3.5 w-3.5 rounded-full border-2 border-background", (effective ?? 0) < 0 ? "bg-destructive" : (effective ?? 0) > 0 ? "bg-success" : "bg-muted-foreground")} />
-      <div className="rounded-xl border border-border bg-card p-3">
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="font-semibold">{note.author?.full_name ?? "Unknown"}</span>
-          <span className="text-muted-foreground">{relativeTime(note.created_at)}</span>
-          <ToneBadge tone="primary">{titleCase(note.category)}</ToneBadge>
-          {note.pinned && <Pin className="h-3 w-3 text-accent" />}
-          <span className="ml-auto flex items-center gap-1.5">
-            <ImpactChip points={effective} />
-            {note.impact_points !== null && <span className="text-[10px] text-muted-foreground">analyst-set</span>}
-          </span>
-        </div>
-        <p className="mt-2 text-sm">{note.body}</p>
-        {note.impact_rationale && <p className="mt-1 text-xs text-muted-foreground">Engine: {note.impact_rationale}</p>}
-        <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-          <button className="flex items-center gap-1 hover:text-foreground" onClick={() => setOpen(!open)}><MessageSquare className="h-3.5 w-3.5" />{replies.length || ""} Reply</button>
-          {mine && (
-            <>
-              <button className="flex items-center gap-1 hover:text-foreground" onClick={async () => { await api.notes.update(note.id, { pinned: !note.pinned }); refresh(); }}><Pin className="h-3.5 w-3.5" />{note.pinned ? "Unpin" : "Pin"}</button>
-              <label className="flex items-center gap-1.5">In CAM <Switch className="scale-75" checked={note.include_in_cam} onCheckedChange={async (v) => { await api.notes.update(note.id, { include_in_cam: v }); refresh(); }} aria-label="Include in CAM" /></label>
-              <button className="ml-auto flex items-center gap-1 hover:text-destructive" onClick={async () => { if (confirm("Delete this note? This is recorded in the audit trail.")) { await api.notes.remove(note.id); refresh(); } }} aria-label="Delete note"><Trash2 className="h-3.5 w-3.5" /></button>
-            </>
-          )}
-        </div>
-        <AnimatePresence>
-          {(open || replies.length > 0) && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-3 space-y-2 border-t border-border pt-3">
-              {replies.map((r) => (
-                <div key={r.id} className="rounded-lg bg-muted/40 px-3 py-2 text-sm"><span className="text-xs font-semibold">{r.author?.full_name}</span> <span className="text-xs text-muted-foreground">{relativeTime(r.created_at)}</span><p>{r.body}</p></div>
-              ))}
-              {open && can("analyst") && (
-                <form className="flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (reply.trim().length < 3) return; await api.notes.create(caseId, { body: reply, kind: "comment", parent_id: note.id, category: note.category }); setReply(""); refresh(); }}>
-                  <Input value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Internal comment…" className="h-8" aria-label="Reply" />
-                  <Button size="sm" type="submit">Reply</Button>
-                </form>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </motion.li>
-  );
-}
+const EXAMPLES = ["Factory operating at 40% capacity.", "Promoter infused ₹5 crore equity last quarter.", "Collateral verified — clear title.", "Management was evasive on related-party sales."];
 
 export default function WorkspacePage() {
   const { caseId, watchJob } = useCaseContext();
@@ -102,95 +36,124 @@ export default function WorkspacePage() {
   const [explicit, setExplicit] = useState(false);
   const [points, setPoints] = useState(0);
   const [escReason, setEscReason] = useState("");
+  const [resolving, setResolving] = useState<{ id: string; text: string } | null>(null);
   const debounced = useDebounced(body);
-  const { data: preview } = useQuery({ queryKey: ["note-preview", debounced], queryFn: () => api.notes.preview(debounced), enabled: debounced.trim().length >= 3 });
+  const { data: preview, isFetching: previewing } = useQuery({ queryKey: ["note-preview", debounced], queryFn: () => api.notes.preview(debounced), enabled: debounced.trim().length >= 3 });
 
   const create = useMutation({
     mutationFn: () => api.notes.create(caseId, { body, category, kind: "note", impact_points: explicit ? points : null }),
     onSuccess: () => {
       setBody(""); setExplicit(false); setPoints(0);
       qc.invalidateQueries({ queryKey: qk.notes(caseId) });
-      toast.success("Note added", { description: "Re-score to apply it to the decision.", action: { label: "Re-score now", onClick: () => rescore.mutate() } });
+      qc.invalidateQueries({ queryKey: qk.overview(caseId) });
+      toast.success("Observation added", { description: "Re-score to apply it to the decision.", action: { label: "Re-score now", onClick: () => rescore.mutate() } });
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
   const escalate = useMutation({
     mutationFn: () => api.escalations.create(caseId, escReason),
-    onSuccess: () => { setEscReason(""); qc.invalidateQueries({ queryKey: ["case", caseId] }); toast.success("Escalated to credit manager"); },
+    onSuccess: () => { setEscReason(""); qc.invalidateQueries({ queryKey: ["case", caseId] }); qc.invalidateQueries({ queryKey: ["cases"] }); toast.success("Escalated to credit committee"); },
     onError: (e) => toast.error(errorMessage(e)),
   });
   const resolve = useMutation({
     mutationFn: ({ id, text }: { id: string; text: string }) => api.escalations.resolve(id, text),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["case", caseId] }); toast.success("Escalation resolved"); },
+    onSuccess: () => { setResolving(null); qc.invalidateQueries({ queryKey: ["case", caseId] }); qc.invalidateQueries({ queryKey: ["cases"] }); toast.success("Escalation resolved"); },
     onError: (e) => toast.error(errorMessage(e)),
   });
 
   const roots = (notes ?? []).filter((n) => !n.parent_id).sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.created_at.localeCompare(a.created_at));
   const repliesOf = (id: string) => (notes ?? []).filter((n) => n.parent_id === id);
-  const impact = explicit ? points : preview?.inferred_points;
+  const impact = explicit ? points : (preview?.inferred_points ?? 0);
+  const typing = body.trim().length >= 3;
+  const netImpact = roots.reduce((s, n) => s + (n.impact_points ?? n.inferred_impact ?? 0), 0);
 
   return (
-    <div className="grid gap-5 xl:grid-cols-3">
-      <div className="space-y-5 xl:col-span-2">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="space-y-6">
         {can("analyst") && (
-          <SectionCard eyebrow="Qualitative evidence" title="Add an observation" info="Notes influence the score as bounded, cited overlays (±40 per note, ±80 total), appear in the CAM and feed the copilot.">
-            <Textarea rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder="e.g. Factory operating at 40% capacity; two of five press lines idle." aria-label="Observation" />
-            <div className="mt-2 flex flex-wrap gap-1.5">{EXAMPLES.map((e) => <button key={e} className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:border-primary hover:text-foreground" onClick={() => setBody(e)}>{e}</button>)}</div>
-            <div className="mt-4 flex flex-wrap items-center gap-4">
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="w-44" aria-label="Category"><SelectValue /></SelectTrigger>
-                <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{titleCase(c)}</SelectItem>)}</SelectContent>
-              </Select>
-              <label className="flex items-center gap-2 text-xs text-muted-foreground"><Switch checked={explicit} onCheckedChange={setExplicit} aria-label="Set impact manually" />Set impact manually</label>
-              {explicit && <div className="flex w-56 items-center gap-3"><Slider min={-40} max={40} step={1} value={[points]} onValueChange={([v]) => setPoints(v)} aria-label="Impact points" /><span className="numeric w-10 text-sm">{points > 0 ? "+" : ""}{points}</span></div>}
-              <div className="ml-auto flex items-center gap-2">
-                {body.trim().length >= 3 && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    Score impact <ImpactChip points={impact ?? 0} />
+          <SectionCard title="Add a field observation" icon={ClipboardList} info="Observations adjust the score as bounded, cited overlays (±40 per note, ±80 total), appear in the CAM and ground the copilot.">
+            <div className="mb-3 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Category">
+              {CATEGORIES.map((c) => (
+                <button key={c.key} role="radio" aria-checked={category === c.key} onClick={() => setCategory(c.key)}
+                  className={cn("flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition", category === c.key ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>
+                  <c.icon className="h-3.5 w-3.5" />{c.label}
+                </button>
+              ))}
+            </div>
+            <div className="relative">
+              <Textarea rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder="What did you observe? e.g. Factory operating at 40% capacity; two of five press lines idle." aria-label="Observation" className="pr-36" />
+              <AnimatePresence>
+                {typing && (
+                  <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+                    className={cn("absolute right-2 top-2 rounded-lg border px-2.5 py-1.5 text-center", impact < 0 ? "border-destructive/30 bg-destructive/[0.07]" : impact > 0 ? "border-success/30 bg-success/[0.07]" : "border-border bg-muted/50")}>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Score impact</p>
+                    <p className={cn("numeric text-lg font-bold leading-tight", impact < 0 ? "text-destructive" : impact > 0 ? "text-success" : "text-muted-foreground")}>
+                      {previewing && !explicit ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : <>{impact > 0 ? "+" : ""}<AnimatedNumber value={impact} /></>}
+                    </p>
                   </motion.div>
                 )}
-                <Button onClick={() => create.mutate()} disabled={body.trim().length < 3 || create.isPending}><Send className="mr-1.5 h-3.5 w-3.5" />Add note</Button>
-              </div>
+              </AnimatePresence>
             </div>
-            {!explicit && preview && body.trim().length >= 3 && <p className="mt-2 text-xs text-muted-foreground">Engine reading: {preview.rationale} · Five C: {titleCase(preview.five_c)}</p>}
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {EXAMPLES.map((e) => <button key={e} className="rounded-full border border-dashed border-border px-2.5 py-0.5 text-[11px] text-muted-foreground transition hover:border-primary/50 hover:text-foreground" onClick={() => setBody(e)}>{e}</button>)}
+            </div>
+            {!explicit && preview && typing && <p className="mt-3 text-xs text-muted-foreground">Engine reading: {preview.rationale} · maps to <b>{titleCase(preview.five_c)}</b></p>}
+            <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-border/70 pt-4">
+              <label className="flex items-center gap-2 text-[13px] text-muted-foreground"><Switch checked={explicit} onCheckedChange={setExplicit} aria-label="Set impact manually" />Override impact</label>
+              {explicit && <div className="flex w-56 items-center gap-3"><Slider min={-40} max={40} step={1} value={[points]} onValueChange={([v]) => setPoints(v)} aria-label="Impact points" /><span className="numeric w-10 text-sm">{points > 0 ? "+" : ""}{points}</span></div>}
+              <Button className="ml-auto" onClick={() => create.mutate()} disabled={!typing || create.isPending}>{create.isPending ? <Loader2 className="animate-spin" /> : <Send />} Add observation</Button>
+            </div>
           </SectionCard>
         )}
-        <SectionCard eyebrow="Collaborative review" title={`Notes timeline (${roots.length})`} actions={can("analyst") && <Button variant="outline" size="sm" onClick={() => rescore.mutate()}><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Apply to score</Button>}>
-          <ul className="-ml-5">{roots.map((n) => <NoteItem key={n.id} note={n} replies={repliesOf(n.id)} caseId={caseId} />)}</ul>
+
+        <SectionCard title={`Observations (${roots.length})`} icon={MessageSquare}
+          actions={<div className="flex items-center gap-2">
+            {roots.length > 0 && <span className="text-xs text-muted-foreground">Net impact <ImpactChip points={netImpact} /></span>}
+            {can("analyst") && <Button variant="outline" size="sm" onClick={() => rescore.mutate()} disabled={rescore.isPending}>{rescore.isPending ? <Loader2 className="animate-spin" /> : <RefreshCw />} Re-score</Button>}
+          </div>}>
+          <ul className="relative before:absolute before:bottom-4 before:left-[11px] before:top-4 before:w-px before:bg-border">
+            {roots.map((n) => <NoteItem key={n.id} note={n} replies={repliesOf(n.id)} caseId={caseId} />)}
+          </ul>
           {!roots.length && <p className="text-sm text-muted-foreground">No observations yet. Site-visit and management-meeting notes belong here.</p>}
         </SectionCard>
       </div>
 
-      <div className="space-y-5">
-        <SectionCard eyebrow="Workflow" title="Escalations" actions={<Flag className="h-4 w-4 text-muted-foreground" />}>
+      <div className="space-y-6">
+        <SectionCard title="Escalations" icon={Flag}>
           {can("analyst") && (
             <div className="mb-4 space-y-2">
-              <Textarea rows={2} value={escReason} onChange={(e) => setEscReason(e.target.value)} placeholder="Why does this need a credit manager / committee?" aria-label="Escalation reason" />
-              <Button size="sm" variant="outline" disabled={escReason.length < 10 || escalate.isPending} onClick={() => escalate.mutate()}><ArrowUpRight className="mr-1.5 h-3.5 w-3.5" />Escalate</Button>
+              <Textarea rows={2} value={escReason} onChange={(e) => setEscReason(e.target.value)} placeholder="Why does this need a credit manager or committee?" aria-label="Escalation reason" />
+              <Button size="sm" variant="outline" disabled={escReason.length < 10 || escalate.isPending} onClick={() => escalate.mutate()}><ArrowUpRight /> Escalate</Button>
             </div>
           )}
-          <ul className="space-y-2">
+          <ul className="space-y-2.5">
             {escalations?.map((e) => (
-              <li key={e.id} className="rounded-lg border border-border p-2.5 text-sm">
+              <li key={e.id} className={cn("rounded-xl border p-3 text-sm", e.status === "open" ? "border-warning/40 bg-warning/[0.05]" : "border-border")}>
                 <div className="flex items-center gap-2"><StatusBadge status={e.status === "open" ? "escalated" : "approved"} /><span className="text-xs text-muted-foreground">{e.raised_by?.full_name} · {relativeTime(e.created_at)}</span></div>
-                <p className="mt-1">{e.reason}</p>
-                {e.resolution && <p className="mt-1 text-xs text-success">Resolved by {e.resolved_by?.full_name}: {e.resolution}</p>}
+                <p className="mt-1.5 text-[13px]">{e.reason}</p>
+                {e.resolution && <p className="mt-1.5 text-xs text-success">Resolved by {e.resolved_by?.full_name}: {e.resolution}</p>}
                 {e.status === "open" && can("credit_manager") && (
-                  <Button size="sm" className="mt-2" onClick={() => { const text = prompt("Resolution note"); if (text) resolve.mutate({ id: e.id, text }); }}>Resolve</Button>
+                  resolving?.id === e.id ? (
+                    <form className="mt-2 flex gap-2" onSubmit={(ev) => { ev.preventDefault(); if (resolving.text.trim().length >= 3) resolve.mutate(resolving); }}>
+                      <Input autoFocus className="h-8" placeholder="Resolution note" value={resolving.text} onChange={(ev) => setResolving({ id: e.id, text: ev.target.value })} />
+                      <Button size="sm" type="submit" disabled={resolve.isPending}>Resolve</Button>
+                    </form>
+                  ) : <Button size="sm" className="mt-2" variant="soft" onClick={() => setResolving({ id: e.id, text: "" })}>Resolve</Button>
                 )}
               </li>
             ))}
             {!escalations?.length && <p className="text-sm text-muted-foreground">No escalations.</p>}
           </ul>
         </SectionCard>
-        <SectionCard eyebrow="Compliance" title="Audit trail" bodyClassName="max-h-[460px] overflow-y-auto p-0 scrollbar-thin">
-          <ul className="divide-y divide-border text-sm">
+        <SectionCard title="Audit trail" icon={History} bodyClassName="max-h-[480px] overflow-y-auto p-0 scrollbar-thin">
+          <ul className="divide-y divide-border/70">
             {audit?.map((a) => (
-              <li key={a.id} className="px-5 py-2">
-                <p className="text-xs text-muted-foreground"><span className="font-mono">{a.action}</span> · {a.actor_email} · {relativeTime(a.created_at)}</p>
-                <p className="truncate">{a.summary}</p>
+              <li key={a.id} className="px-5 py-2.5">
+                <p className="truncate text-[13px]">{a.summary}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground"><span className="font-mono">{a.action}</span> · {a.actor_email?.split("@")[0]} · {relativeTime(a.created_at)}</p>
               </li>
             ))}
+            {!audit?.length && <li className="px-5 py-6 text-center text-sm text-muted-foreground">No audit events yet.</li>}
           </ul>
         </SectionCard>
       </div>

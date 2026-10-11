@@ -1,179 +1,156 @@
-"""Document ingestion pipeline.
+"""Document ingestion pipeline (pure: no database access).
 
-    bytes → preprocess → text extraction (pdfplumber/PyMuPDF) → OCR fallback
-          → table extraction → classification → entity & financial extraction
-          → normalisation → DocumentExtraction (structured JSON)
+    file -> text layer (pdfplumber / PyMuPDF, OCR per scanned page) -> tables -> classification
+         -> identity & red flags -> type-specific extraction -> confidence -> structured JSON
 
-The pipeline is pure (no DB access) so it runs identically inside a FastAPI
-thread, a Celery worker, a CLI script or a unit test. Progress is reported via
-an optional callback ``(stage, percent, message)``.
+Runs identically in a Celery worker, the in-process job pool, the seed script and unit tests.
 """
 
 from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from pathlib import Path
+from typing import Any
 
 from core.logging import get_logger
-from core.metrics import EXTRACTIONS
+from extraction.classification.classifier import classify
+from extraction.financials.bank import extract_bank
+from extraction.financials.documents import extract_legal, extract_mca, extract_sanction, extract_shareholding
+from extraction.financials.entities import RedFlag, company_name, directors, extract_red_flags, identifiers, positive_signals
+from extraction.financials.gst import extract_gst
+from extraction.financials.statements import extract_financials
+from extraction.parsers.pdf import parse_any
+from extraction.tables.extractor import extract_tables
+from models.enums import DocumentType
 
-from .classification.classifier import classify_document
-from .financials.bank import extract_bank
-from .financials.entities import extract_entities
-from .financials.gst import extract_gst
-from .financials.legal_and_filings import extract_legal, extract_mca, extract_sanctions, extract_shareholding
-from .financials.risk_signals import detect_risk_indicators
-from .financials.statements import extract_financial_years
-from .normalization.amounts import detect_statement_unit
-from .normalization.health import assess_financial_health
-from .normalization.schema import DocumentExtraction, FieldEvidence
-from .parsers.document_parser import parse_document
-from .parsers.preprocess import strip_repeated_headers
-from .tables.extractor import extract_tables
+log = get_logger("credx.extraction")
+ProgressFn = Callable[[int, str, str], None]
 
-logger = get_logger("credx.extraction")
-
-ProgressFn = Callable[[str, int, str], None]
-
-PIPELINE_STAGES = [
-    ("preprocessing", "Validating & preprocessing"),
-    ("text_extraction", "Extracting text layer"),
-    ("ocr", "OCR fallback for scanned pages"),
-    ("tables", "Detecting tables"),
-    ("classification", "Classifying document"),
-    ("entities", "Extracting entities & financials"),
-    ("normalization", "Normalising & scoring confidence"),
-]
-
-# How many populated fields we expect from a "complete" document of each type.
-_EXPECTED_FIELDS = {
-    "annual_report": 10, "financial_statement": 12, "gst_return": 4, "bank_statement": 4,
-    "sanction_letter": 3, "legal_notice": 2, "mca_filing": 3, "shareholding_pattern": 2,
-    "rating_report": 4, "unknown": 6,
-}
-
-_FINANCIAL_TYPES = {"annual_report", "financial_statement", "rating_report", "unknown"}
+FINANCIAL_TYPES = {DocumentType.ANNUAL_REPORT, DocumentType.FINANCIAL_STATEMENT, DocumentType.RATING_REPORT, DocumentType.OTHER}
+# Fields we expect a complete document of each type to yield (drives the field-coverage confidence).
+EXPECTED_FIELDS = {DocumentType.ANNUAL_REPORT: 12, DocumentType.FINANCIAL_STATEMENT: 12, DocumentType.RATING_REPORT: 4}
 
 
-def _noop(stage: str, pct: int, msg: str) -> None:  # pragma: no cover
-    return None
+def _health(financials: dict[str, dict[str, dict[str, Any]]], flags: list[RedFlag]) -> str:
+    latest = next(iter(financials.values()), {})
+
+    def v(name: str) -> float | None:
+        return latest.get(name, {}).get("value")
+
+    points = 0
+    if (e := v("ebitda")) is not None and (r := v("revenue")):
+        points += 1 if e / r >= 0.12 else (-1 if e / r < 0.07 else 0)
+    if (e := v("ebitda")) and (i := v("interest_expense")):
+        points += 1 if e / i >= 3 else (-1 if e / i < 1.75 else 0)
+    if (d := v("total_debt")) is not None and (nw := v("net_worth")):
+        points += 1 if d / nw <= 1 else (-1 if d / nw > 2.5 else 0)
+    if (p := v("pat")) is not None and p < 0:
+        points -= 1
+    points -= sum(2 if f.severity == "CRITICAL" else 1 for f in flags if f.severity in ("HIGH", "CRITICAL"))
+    return "STRONG" if points >= 2 else "MODERATE" if points >= 0 else "WEAK" if points >= -3 else "STRESSED"
 
 
-def run_extraction(
-    data: bytes,
-    *,
-    filename: str,
-    extension: str,
-    declared_type: str | None = None,
-    pdf_path: str | None = None,
-    progress: ProgressFn | None = None,
-) -> DocumentExtraction:
-    report = progress or _noop
-    timings: dict[str, int] = {}
+def process_document(path: Path, filename: str, declared_type: str | None = None,
+                     progress: ProgressFn | None = None) -> dict[str, Any]:
+    report = progress or (lambda pct, stage, msg: None)
+    stages: list[dict[str, Any]] = []
     clock = time.perf_counter()
 
-    def lap(stage: str) -> None:
+    def stage(name: str, pct: int, message: str) -> None:
         nonlocal clock
         now = time.perf_counter()
-        timings[stage] = int((now - clock) * 1000)
+        if stages:
+            stages[-1]["ms"] = int((now - clock) * 1000)
         clock = now
+        stages.append({"name": name, "status": "done", "ms": 0})
+        report(pct, name, message)
 
-    report("preprocessing", 5, "Validating document")
-    lap("preprocessing")
+    path = Path(path)
+    stage("parsing", 10, "Extracting text layer")
+    parsed = parse_any(path)
+    pages = [(p.number, p.text) for p in parsed.pages]
+    text = parsed.text
+    warnings = list(parsed.warnings)
+    if not text.strip():
+        warnings.append("No readable text found — scanned document without OCR, or an empty file")
 
-    report("text_extraction", 15, "Extracting text layer")
-    parsed = parse_document(data, extension)
-    lap("text_extraction")
-    report("ocr", 35, "OCR applied to scanned pages" if parsed.ocr_used else "Text layer sufficient — OCR not needed")
-    pages = strip_repeated_headers([p.text for p in parsed.pages])
-    full_text = "\n\n".join(pages)
-    lap("ocr")
+    stage("tables", 30, "Detecting tables")
+    tables = extract_tables(path)
 
-    report("tables", 50, "Detecting tables")
-    tables = extract_tables(data if parsed.is_pdf else None, pdf_path=pdf_path, page_texts=pages)
-    lap("tables")
+    stage("classification", 45, "Classifying document")
+    cls = classify(text, filename, declared_type)
+    doc_type = DocumentType(declared_type) if declared_type else cls.doc_type
 
-    report("classification", 62, "Classifying document")
-    cls = classify_document(full_text, filename, declared_type)
-    lap("classification")
-
-    report("entities", 75, f"Extracting {cls.doc_type.replace('_', ' ')} fields")
-    unit, multiplier = detect_statement_unit(full_text)
-    entities = extract_entities(full_text)
-    ocr_penalty = 0.85 if parsed.ocr_used else 1.0
-
-    result = DocumentExtraction(
-        doc_type=cls.doc_type,
-        doc_type_confidence=cls.confidence,
-        classification_signals=cls.signals,
-        page_count=parsed.page_count,
-        ocr_used=parsed.ocr_used,
-        text_chars=len(full_text),
-        unit_detected=unit,
-        entities=entities,
-        tables=[],
-        warnings=list(parsed.warnings),
-    )
-    evidence: list[FieldEvidence] = []
-
-    if cls.doc_type in _FINANCIAL_TYPES:
-        result.financials, fin_evidence = extract_financial_years(
-            pages, tables, doc_fy=entities.financial_year, multiplier=multiplier, ocr_penalty=ocr_penalty
-        )
-        evidence.extend(fin_evidence)
-    if cls.doc_type == "gst_return" or "gstr" in full_text.lower():
-        result.gst, result.counterparties, gst_evidence = extract_gst(
-            pages, tables, doc_fy=entities.financial_year, multiplier=multiplier
-        )
-        evidence.extend(gst_evidence)
-    if cls.doc_type == "bank_statement":
-        result.bank = extract_bank(pages, tables, multiplier=multiplier)
-        result.counterparties.extend(result.bank.counterparties)
-    if cls.doc_type in {"legal_notice", "annual_report", "rating_report", "mca_filing"}:
-        result.legal = extract_legal(full_text)
-    if cls.doc_type == "sanction_letter":
-        result.sanctions = extract_sanctions(full_text)
-    if cls.doc_type in {"shareholding_pattern", "annual_report"}:
-        result.shareholding = extract_shareholding(full_text, tables)
-    if cls.doc_type == "mca_filing":
-        result.mca = extract_mca(full_text)
-    result.risk_indicators = detect_risk_indicators(pages)
-    lap("entities")
-
-    report("normalization", 90, "Normalising values & computing confidence")
-    for field, value in (("company_name", entities.company_name), ("cin", entities.cin), ("gstin", entities.gstins[0] if entities.gstins else None)):
-        if value:
-            evidence.append(FieldEvidence(field=field, value=value, confidence=round(0.9 * ocr_penalty, 3), method="narrative"))
-    result.evidence = evidence
-    result.tables = tables[:12]
-
-    populated = len({(e.field, e.fiscal_year) for e in evidence}) + len(result.legal) + len(result.sanctions) + (
-        len(result.bank.months) if result.bank else 0
-    )
-    coverage = min(1.0, populated / _EXPECTED_FIELDS.get(cls.doc_type, 6))
-    result.confidence = round(0.35 * cls.confidence + 0.25 * parsed.text_quality + 0.40 * coverage, 3)
-    if result.confidence < 0.45:
-        result.warnings.append("Low extraction confidence — please review the extracted values")
-
-    latest = result.financials[0] if result.financials else None
-    health = assess_financial_health(result.financials, result.risk_indicators)
-    result.summary = {
-        "company_name": entities.company_name,
-        "document_type": cls.doc_type,
-        "financial_year": latest.fiscal_year if latest else entities.financial_year,
-        "revenue": latest.revenue if latest else None,
-        "ebitda": latest.ebitda if latest else None,
-        "debt": latest.total_debt if latest else None,
-        "gst_number": entities.gstins[0] if entities.gstins else None,
-        "financial_health": health,
-        "risk_flags": len([r for r in result.risk_indicators if r.code != "positive_order_book"]),
+    stage("entities", 60, f"Extracting {doc_type.value.replace('_', ' ')} fields")
+    ids = identifiers(text)
+    flags = extract_red_flags(pages)
+    result: dict[str, Any] = {
+        "company_name": company_name(text),
+        "doc_type": doc_type.value,
+        "classification": {"type": cls.doc_type.value, "confidence": cls.confidence, "signals": cls.signals, "scores": cls.scores},
+        "identifiers": ids,
+        "directors": directors(text),
+        "financials": {},
+        "positive_signals": positive_signals(text),
+        "warnings": warnings,
     }
-    lap("normalization")
-    result.stage_timings_ms = timings
-    EXTRACTIONS.inc(doc_type=cls.doc_type, ocr=str(parsed.ocr_used).lower())
-    logger.info(
-        "document_extracted",
-        extra={"doc_type": cls.doc_type, "pages": parsed.page_count, "confidence": result.confidence, "ocr": parsed.ocr_used},
-    )
-    report("complete", 100, "Extraction complete")
+    if doc_type in FINANCIAL_TYPES:
+        result["financials"] = extract_financials(pages, tables)
+    if doc_type == DocumentType.GST_RETURN or "GSTR" in text.upper():
+        gst = extract_gst(text)
+        if gst["returns"]:
+            result["gst"] = gst
+    if doc_type == DocumentType.BANK_STATEMENT:
+        result["bank"] = extract_bank(text)
+    if doc_type == DocumentType.LEGAL_NOTICE:
+        result["legal"] = {"title": next((line for line in text.splitlines() if line.strip()), filename)[:160], **extract_legal(text)}
+    if doc_type == DocumentType.SANCTION_LETTER:
+        result["sanction"] = extract_sanction(text)
+    if doc_type in (DocumentType.SHAREHOLDING_PATTERN, DocumentType.ANNUAL_REPORT) and "pledged" in text.lower():
+        result["shareholding"] = extract_shareholding(text)
+        pledged = result["shareholding"].get("pledged_pct") or 0
+        if pledged >= 10:
+            flags.append(RedFlag("Promoter share pledge", "HIGH" if pledged >= 40 else "MEDIUM", "capital",
+                                 f"{pledged:.1f}% of promoter holding pledged or encumbered"))
+    if doc_type == DocumentType.MCA_FILING:
+        result["mca"] = extract_mca(text)
+    result["red_flags"] = [f.to_dict() for f in flags]
+
+    stage("validation", 85, "Scoring confidence")
+    field_count = sum(len(v) for v in result["financials"].values())
+    expected = EXPECTED_FIELDS.get(doc_type)
+    field_conf = None
+    if expected:
+        values = [f["confidence"] for fy in result["financials"].values() for f in fy.values()]
+        coverage = min(1.0, field_count / (expected * max(1, min(2, len(result["financials"])))))
+        field_conf = round(coverage * (sum(values) / len(values)), 3) if values else 0.0
+    overall = 0.4 * parsed.text_confidence + 0.35 * cls.confidence + 0.25 * (field_conf if field_conf is not None else cls.confidence)
+    if expected and not field_count:
+        warnings.append("No financial line items recognised — check the statement format or edit values manually")
+    if ids["invalid_gstins"]:
+        warnings.append(f"GSTIN checksum failed for {', '.join(ids['invalid_gstins'])}")
+
+    latest = next(iter(result["financials"].values()), {})
+    result.update({
+        "fiscal_years": list(result["financials"]),
+        "headline": {
+            "company_name": result["company_name"],
+            "revenue": latest.get("revenue", {}).get("value"), "ebitda": latest.get("ebitda", {}).get("value"),
+            "pat": latest.get("pat", {}).get("value"), "debt": latest.get("total_debt", {}).get("value"),
+            "gst_number": (ids["gstins"] or [None])[0],
+            "financial_health": _health(result["financials"], flags),
+        },
+        "tables": tables[:12],
+        "pages": [{"number": p.number, "method": p.method, "confidence": p.confidence, "chars": len(p.text)} for p in parsed.pages],
+        "ocr_used": parsed.ocr_used,
+        "page_count": parsed.page_count,
+        "confidence": {"overall": round(overall, 3), "text": parsed.text_confidence, "classification": cls.confidence,
+                       "fields": field_conf},
+        "text_preview": text[:6000],
+    })
+    stage("complete", 100, "Extraction complete")
+    result["stages"] = stages
+    log.info("document extracted", extra={"doc_type": doc_type.value, "pages": parsed.page_count, "fields": field_count,
+                                          "confidence": result["confidence"]["overall"]})
     return result

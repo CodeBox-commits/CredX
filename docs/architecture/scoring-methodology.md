@@ -27,16 +27,17 @@ and the UI shows them as "not available" rather than silently imputing.
 
 ## 2. Model (`scoring/models`)
 
-* Gradient-boosted trees (`binary:logistic`, depth 3, 500 rounds with early stopping, monotone constraints).
+* Gradient-boosted trees (`binary:logistic`, depth 3, η 0.05, 500 rounds, monotone constraints, `hist`).
 * Bootstrapped on a synthetic Indian mid-corporate portfolio (latent quality factor + policy-informed
-  default mechanism, 8% default rate) because no public labelled dataset exists — **replace with your
-  portfolio** via `ml/training/train.py --data portfolio.csv`.
-* Validation (`ml/evaluation/evaluate.py`): AUC ≈ 0.88, Gini ≈ 0.77, KS ≈ 0.61, PSI ≈ 0.
+  default mechanism, ~8% default rate) because no public labelled dataset exists — **replace with your
+  portfolio** via `ml/training/train.py --data portfolio.csv`. The registry retrains the bootstrap model
+  automatically if the artifact in `MODEL_DIR` is missing or was trained on a different feature list.
+* Validation (`ml/evaluation/evaluate.py`): AUC ≈ 0.81, Gini ≈ 0.63, KS ≈ 0.47, Brier ≈ 0.063.
 
-## 3. From probability to points
+## 3. From probability to points (`scoring/inference/scale.py`)
 
 ```
-score = OFFSET + FACTOR × ln(odds_good)          FACTOR = PDO / ln 2,  PDO = 28
+score = OFFSET + FACTOR × ln(odds_good)          FACTOR = PDO / ln 2,  PDO = 20
 anchor: 680 ⇔ 20:1 good:bad (PD ≈ 4.8%)          OFFSET = 680 − FACTOR × ln 20
 ```
 
@@ -48,17 +49,17 @@ score = (OFFSET − FACTOR × bias) + Σ (−FACTOR × shapᵢ)
 ```
 
 Feature points are rounded with largest-remainder rounding so the integer waterfall sums *exactly*
-to the integer score. What-if analysis re-scores with one feature moved to its benchmark.
+to the integer score. What-if analysis re-scores with one feature moved to its policy benchmark.
 
 | Score | PD | Grade | Risk |
 |---|---|---|---|
-| ≥ 800 | ≤ 0.26% | CX1 | LOW |
-| 760–799 | ≤ 0.7% | CX2 | LOW |
-| 720–759 | ≤ 1.8% | CX3 | MEDIUM |
+| ≥ 800 | ≤ 0.08% | CX1 | LOW |
+| 760–799 | ≤ 0.3% | CX2 | LOW |
+| 720–759 | ≤ 1.2% | CX3 | MEDIUM |
 | 680–719 | ≤ 4.8% | CX4 | MEDIUM |
-| 640–679 | ≤ 12% | CX5 | HIGH |
-| 600–639 | ≤ 27% | CX6 | HIGH |
-| 550–599 | ≤ 56% | CX7 | CRITICAL |
+| 640–679 | ≤ 17% | CX5 | HIGH |
+| 600–639 | ≤ 44% | CX6 | HIGH |
+| 550–599 | ≤ 79% | CX7 | CRITICAL |
 | < 550 | — | CX8 | CRITICAL |
 
 ## 4. Overlays (`scoring/decision_logic/overlays.py`)
@@ -66,13 +67,13 @@ to the integer score. What-if analysis re-scores with one feature moved to its b
 * **Analyst notes** — "Factory operating at 40% capacity" → capacity utilisation vs 75% benchmark → −21.
   A transparent lexicon (shutdowns, stock mismatches, evasive management, equity infusion, verified
   collateral, order book…) infers the impact; analysts can pin an explicit value. Each note ±40, all notes ±80.
-* **Unmodelled red flags** — e.g. going-concern emphasis (−40), auditor resignation (−25). Flags whose
-  signal *is* a model feature (bounces, GST mismatch, NCLT litigation, circular trading) are skipped
+* **Unmodelled red flags** — e.g. going-concern emphasis (−40), auditor resignation (−25), scaled down together when their sum exceeds −90. Flags whose
+  signal *is* a model feature (bounces, GST mismatch, NCLT litigation, circular trading, overdue receivables, margin compression) are skipped
   to avoid double counting.
 
 ## 5. Policy and decision (`scoring/decision_logic/policy.py`, `scoring/inference/engine.py`)
 
-Knock-outs (wilful defaulter, NPA/SMA-2, admitted IBC, fraud score > 75, DSCR < 0.9) → DECLINE.
+Knock-outs KO-01…05 (wilful defaulter, NPA/SMA classification, admitted IBC petition, fraud score ≥ 75, investigative-agency action) → DECLINE. Deviations DV-01…10 cover DSCR, leverage, gearing, current ratio, GST reconciliation, promoter pledge, security cover, litigation, banking conduct and audit opinion.
 Score < 600 → DECLINE; < 660, ≥ 3 deviations or a severe overlay → REFER; deviations or < 700 →
 APPROVE_WITH_CONDITIONS (with generated covenants); otherwise APPROVE. Zero debt headroom turns an
 approval into a referral.

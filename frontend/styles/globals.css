@@ -2,75 +2,81 @@
 @tailwind components;
 @tailwind utilities;
 
-/* CredX design tokens — navy/cobalt primary, saffron accent, terminal-grade dark mode. */
+/* CredX design tokens — calm neutral canvas, indigo primary, semantic risk colours. */
 @layer base {
   :root {
     color-scheme: light;
-    --background: 214 33% 97%;
+    --background: 220 20% 97.5%;
     --surface: 0 0% 100%;
-    --foreground: 218 39% 14%;
+    --surface-2: 220 20% 98.5%;
+    --foreground: 224 32% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 218 39% 14%;
+    --card-foreground: 224 32% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 218 39% 14%;
-    --primary: 211 100% 34%;
+    --popover-foreground: 224 32% 12%;
+    --primary: 243 75% 58%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 214 32% 94%;
-    --secondary-foreground: 218 39% 18%;
-    --muted: 214 30% 94%;
-    --muted-foreground: 217 13% 44%;
-    --accent: 28 92% 52%;
+    --secondary: 220 18% 95%;
+    --secondary-foreground: 224 30% 18%;
+    --muted: 220 18% 95.5%;
+    --muted-foreground: 220 10% 45%;
+    --accent: 262 83% 62%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 72% 51%;
+    --destructive: 352 78% 54%;
     --destructive-foreground: 0 0% 100%;
-    --success: 158 72% 34%;
+    --success: 160 72% 36%;
     --success-foreground: 0 0% 100%;
-    --warning: 36 92% 46%;
+    --warning: 34 94% 48%;
     --warning-foreground: 0 0% 100%;
-    --border: 214 28% 88%;
-    --input: 214 28% 86%;
-    --ring: 211 100% 40%;
-    --radius: 0.75rem;
-    --chart-1: 211 100% 40%;
-    --chart-2: 28 92% 52%;
-    --chart-3: 158 72% 36%;
-    --chart-4: 268 60% 55%;
-    --chart-5: 191 85% 40%;
-    --grid: 214 30% 90%;
+    --info: 199 89% 46%;
+    --border: 220 16% 90%;
+    --input: 220 16% 87%;
+    --ring: 243 75% 58%;
+    --radius: 0.8rem;
+    --chart-1: 243 75% 58%;
+    --chart-2: 199 89% 46%;
+    --chart-3: 160 72% 38%;
+    --chart-4: 34 94% 50%;
+    --chart-5: 330 75% 58%;
+    --grid: 220 16% 92%;
+    --shadow-color: 224 40% 20%;
   }
 
   .dark {
     color-scheme: dark;
-    --background: 222 47% 5%;
-    --surface: 222 40% 8%;
-    --foreground: 210 40% 96%;
-    --card: 222 40% 8%;
-    --card-foreground: 210 40% 96%;
-    --popover: 222 40% 9%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 205 94% 62%;
-    --primary-foreground: 222 47% 8%;
-    --secondary: 222 30% 13%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 222 26% 12%;
-    --muted-foreground: 215 18% 66%;
-    --accent: 32 94% 58%;
-    --accent-foreground: 222 47% 8%;
-    --destructive: 0 75% 60%;
+    --background: 228 28% 6%;
+    --surface: 228 24% 9%;
+    --surface-2: 228 22% 11%;
+    --foreground: 220 30% 96%;
+    --card: 228 24% 9%;
+    --card-foreground: 220 30% 96%;
+    --popover: 228 24% 10%;
+    --popover-foreground: 220 30% 96%;
+    --primary: 240 90% 70%;
+    --primary-foreground: 228 30% 8%;
+    --secondary: 228 20% 14%;
+    --secondary-foreground: 220 30% 94%;
+    --muted: 228 20% 13%;
+    --muted-foreground: 222 14% 64%;
+    --accent: 262 90% 72%;
+    --accent-foreground: 228 30% 8%;
+    --destructive: 352 85% 64%;
     --destructive-foreground: 0 0% 100%;
-    --success: 156 64% 46%;
-    --success-foreground: 222 47% 8%;
-    --warning: 38 92% 56%;
-    --warning-foreground: 222 47% 8%;
-    --border: 220 22% 17%;
-    --input: 220 22% 20%;
-    --ring: 205 94% 62%;
-    --chart-1: 205 94% 62%;
-    --chart-2: 32 94% 58%;
-    --chart-3: 156 64% 46%;
-    --chart-4: 268 75% 72%;
-    --chart-5: 186 80% 52%;
-    --grid: 220 22% 14%;
+    --success: 158 64% 48%;
+    --success-foreground: 228 30% 8%;
+    --warning: 38 95% 58%;
+    --warning-foreground: 228 30% 8%;
+    --info: 199 89% 60%;
+    --border: 228 18% 17%;
+    --input: 228 18% 21%;
+    --ring: 240 90% 70%;
+    --chart-1: 240 90% 72%;
+    --chart-2: 199 89% 60%;
+    --chart-3: 158 64% 50%;
+    --chart-4: 38 95% 60%;
+    --chart-5: 330 85% 70%;
+    --grid: 228 18% 14%;
+    --shadow-color: 228 60% 2%;
   }
 
   * {
@@ -81,44 +87,182 @@
     text-rendering: optimizeLegibility;
   }
   body {
-    @apply bg-background text-foreground font-sans;
-    font-feature-settings: "cv11", "ss01";
+    @apply bg-background font-sans text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     @apply font-display tracking-tight;
   }
   :focus-visible {
-    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+    @apply outline-none ring-2 ring-ring/60 ring-offset-2 ring-offset-background;
+  }
+  ::selection {
+    background: hsl(var(--primary) / 0.18);
+  }
+}
+
+@layer components {
+  /* The one card style used everywhere — consistent surface, border and depth. */
+  .panel {
+    @apply rounded-2xl border border-border/80 bg-card;
+    box-shadow: 0 1px 2px hsl(var(--shadow-color) / 0.04), 0 1px 1px hsl(var(--shadow-color) / 0.02);
+  }
+  /* Cursor spotlight: AppShell writes --spot-x/--spot-y on the panel under the pointer. */
+  .panel {
+    position: relative;
+    isolation: isolate;
+  }
+  .panel::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    background: radial-gradient(420px circle at var(--spot-x, 50%) var(--spot-y, 50%), hsl(var(--primary) / 0.07), transparent 45%);
+  }
+  .panel:hover::before {
+    opacity: 1;
+  }
+  .panel-interactive {
+    @apply panel transition duration-200 hover:-translate-y-0.5 hover:border-primary/30;
+  }
+  /* Animated gradient ring for "something is running" surfaces. */
+  .ring-running {
+    border-color: transparent !important;
+    background:
+      linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
+      linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--info)), hsl(var(--primary))) border-box;
+    background-size: 100% 100%, 200% 100%;
+    animation: ring-flow 3s linear infinite;
+  }
+  /* Staggered entrance — pure CSS so it always completes, even in throttled tabs. */
+  .reveal {
+    animation: reveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes reveal {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+  }
+  @keyframes ring-flow {
+    to {
+      background-position: 0 0, 200% 0;
+    }
+  }
+  @keyframes ticker {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  @keyframes aurora-drift {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(2%, 3%, 0) scale(1.06);
+    }
+  }
+  .stagger > :nth-child(1) { animation-delay: 0ms; }
+  .stagger > :nth-child(2) { animation-delay: 60ms; }
+  .stagger > :nth-child(3) { animation-delay: 120ms; }
+  .stagger > :nth-child(4) { animation-delay: 180ms; }
+  .stagger > :nth-child(5) { animation-delay: 240ms; }
+  .stagger > :nth-child(6) { animation-delay: 300ms; }
+  .stagger > :nth-child(n + 7) { animation-delay: 360ms; }
+  .stagger > * {
+    animation: reveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-ticker {
+    animation: ticker 40s linear infinite;
+  }
+  .animate-ticker:hover {
+    animation-play-state: paused;
+  }
+  .animate-aurora {
+    animation: aurora-drift 18s ease-in-out infinite;
+  }
+  .panel-interactive:hover {
+    box-shadow: 0 12px 32px -16px hsl(var(--primary) / 0.35), 0 2px 6px hsl(var(--shadow-color) / 0.05);
+  }
+  .label {
+    @apply text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground;
+  }
+  .kbd {
+    @apply inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-border bg-surface px-1 font-mono text-[10px] text-muted-foreground;
   }
 }
 
 @layer utilities {
-  .tabular { font-variant-numeric: tabular-nums; }
-  .numeric { @apply font-mono tabular; }
-  .eyebrow { @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground; }
-  .terminal-grid {
-    background-image:
-      linear-gradient(hsl(var(--grid)) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--grid)) 1px, transparent 1px);
-    background-size: 32px 32px;
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
-  .glass { @apply bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/70; }
-  .scrollbar-thin { scrollbar-width: thin; scrollbar-color: hsl(var(--border)) transparent; }
-  .text-balance { text-wrap: balance; }
-  .card-hover { @apply transition-shadow duration-200 hover:shadow-[0_8px_30px_-12px_hsl(var(--primary)/0.35)]; }
-  .shimmer { @apply relative overflow-hidden; }
+  .numeric {
+    @apply tabular font-mono;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .bg-dots {
+    background-image: radial-gradient(hsl(var(--grid)) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+  .bg-aurora {
+    background:
+      radial-gradient(60% 50% at 15% 0%, hsl(var(--primary) / 0.14), transparent 70%),
+      radial-gradient(50% 45% at 90% 10%, hsl(var(--accent) / 0.12), transparent 70%),
+      radial-gradient(40% 40% at 60% 100%, hsl(var(--info) / 0.08), transparent 70%);
+  }
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary via-accent to-info bg-clip-text text-transparent;
+  }
+  .mask-fade-b {
+    mask-image: linear-gradient(to bottom, black 70%, transparent);
+  }
+  .shimmer {
+    @apply relative overflow-hidden;
+  }
   .shimmer::after {
     content: "";
-    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-foreground/5 to-transparent;
+    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-foreground/[0.06] to-transparent;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
-/* Printable CAM preview */
 @media print {
-  .no-print { display: none !important; }
-  body { background: white; }
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  .panel {
+    box-shadow: none;
+  }
 }

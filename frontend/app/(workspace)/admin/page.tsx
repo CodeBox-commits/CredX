@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Cpu, ScrollText, Search, Users } from "lucide-react";
+import { Cpu, ScrollText, Search, ShieldCheck, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -110,7 +110,7 @@ function ModelTab() {
               <Stat label="Brier" value={model.metrics.brier} /><Stat label="Trees" value={model.trees} />
             </div>
             <p className="mt-3 text-xs text-muted-foreground">Trained {relativeTime(model.trained_at)} on {model.data_source} · monotone constraints {model.params.monotone_constraints}</p>
-            <p className="eyebrow mb-2 mt-5">Global importance (mean |SHAP|)</p>
+            <p className="label mb-2 mt-5">Global importance (mean |SHAP|)</p>
             <ul className="space-y-1.5">
               {model.global_importance.map((g: { feature: string; label: string; mean_abs_shap: number }) => {
                 const max = model.global_importance[0].mean_abs_shap;
@@ -147,7 +147,7 @@ export default function AdminPage() {
   const isAdmin = useAuth((s) => s.can("admin"));
   return (
     <>
-      <PageHeader eyebrow="Governance" title="Users, audit & models" description="Role-based access, an append-only audit trail and model risk transparency." />
+      <PageHeader icon={ShieldCheck} title="Governance" description="Users & roles, the append-only audit trail, and model & AI provider transparency." />
       <Tabs defaultValue={isAdmin ? "users" : "audit"}>
         <TabsList className="mb-5">
           {isAdmin && <TabsTrigger value="users"><Users className="mr-1.5 h-3.5 w-3.5" />Users</TabsTrigger>}

@@ -1,49 +1,80 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>{{ cam.title }}</title>
-  <style>
-    :root { --navy:#0b2545; --muted:#5b6b82; --line:#d9e2ef; --bg:#f6f8fc; }
-    body { font-family: "IBM Plex Sans", Arial, sans-serif; color:#14213d; max-width: 900px; margin: 32px auto; padding: 0 24px; font-size: 13px; line-height: 1.55; }
-    h1 { color: var(--navy); font-size: 24px; margin-bottom: 2px; }
-    h2 { color: var(--navy); font-size: 16px; border-bottom: 1px solid var(--line); padding-bottom: 4px; margin-top: 28px; }
-    h3 { color: var(--navy); font-size: 13px; margin: 14px 0 4px; }
-    .meta { color: var(--muted); font-size: 12px; }
-    table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 12px; }
-    th { background: var(--navy); color: #fff; text-align: left; padding: 6px 8px; }
-    td { border: 1px solid var(--line); padding: 5px 8px; vertical-align: top; }
-    tr:nth-child(even) td { background: var(--bg); }
-    .kv { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 24px; margin: 8px 0 12px; }
-    .kv div { border-bottom: 1px solid var(--line); padding: 4px 0; display: flex; justify-content: space-between; gap: 12px; }
-    .kv span { color: var(--muted); }
-    .callout { border-left: 4px solid var(--navy); background: var(--bg); padding: 10px 14px; margin: 10px 0; border-radius: 4px; }
-    .callout.positive { border-color: #0f7b4c; background: #e8f7ef; }
-    .callout.warning { border-color: #a15c00; background: #fff6e5; }
-    .callout.negative { border-color: #b42318; background: #fdecec; }
-    .comment { font-style: italic; color: #3b4a5e; }
-    caption { caption-side: top; text-align: left; color: var(--muted); font-size: 11px; padding-bottom: 4px; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAM — {{ company.name }} ({{ case.reference }})</title>
+<style>
+  :root { --ink: #14213d; --muted: #5b6b80; --line: #dbe3ee; --brand: #0b4f9c; --soft: #f4f7fb; }
+  * { box-sizing: border-box; }
+  body { font: 13px/1.55 "Segoe UI", Inter, Arial, sans-serif; color: var(--ink); margin: 0; background: #fff; }
+  main { max-width: 900px; margin: 0 auto; padding: 32px 24px 64px; }
+  .brand { color: var(--brand); font-weight: 700; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+  h1 { font-size: 26px; margin: 4px 0; }
+  .meta { color: var(--muted); font-size: 12px; }
+  h2 { color: var(--brand); font-size: 16px; margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; }
+  th { background: var(--soft); text-align: left; font-weight: 600; }
+  th, td { border-bottom: 1px solid var(--line); padding: 5px 8px; vertical-align: top; }
+  .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
+  .kv div { border-bottom: 1px solid var(--line); padding: 5px 0; display: flex; justify-content: space-between; gap: 12px; }
+  .kv dt { color: var(--muted); } .kv dd { margin: 0; text-align: right; }
+  .decision { border-left: 4px solid var(--brand); background: var(--soft); padding: 12px 14px; border-radius: 6px; }
+  .decision b { font-size: 15px; }
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+  .metric { border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+  .metric span { color: var(--muted); font-size: 11px; display: block; } .metric strong { font-size: 14px; }
+  .fivecs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .fivecs div { border: 1px solid var(--line); border-radius: 6px; padding: 8px; font-size: 12px; }
+  .fivecs strong { font-size: 20px; display: block; }
+  .badge { display: inline-block; border: 1px solid var(--line); border-radius: 99px; padding: 1px 9px; margin: 0 6px 6px 0; font-size: 12px; }
+  .note { color: var(--muted); font-style: italic; font-size: 12px; }
+  .comment { background: #fff7ef; border-left: 3px solid #f08a24; padding: 8px 10px; margin-top: 8px; }
+  .signoff { margin-top: 40px; }
+  @media print { main { padding: 0; } h2 { break-after: avoid; } }
+  @media (max-width: 700px) { .kv, .metrics, .fivecs { grid-template-columns: 1fr; } }
+</style>
 </head>
 <body>
-  <h1>{{ cam.title }}</h1>
-  <div class="meta">Reference {{ cam.reference }} · Generated {{ cam.generated_at[:10] }}{% if cam.prepared_by %} · Analyst: {{ cam.prepared_by }}{% endif %} · CONFIDENTIAL</div>
-  {% for section in cam.sections %}
-  <h2>{{ section.title }}</h2>
-    {% for block in section.blocks %}
-      {% if block.type == "paragraph" %}<p>{{ block.text }}</p>
-      {% elif block.type == "heading" %}<h3>{{ block.text }}</h3>
-      {% elif block.type == "bullets" %}<ul>{% for item in block["items"] %}<li>{{ item }}</li>{% endfor %}</ul>
-      {% elif block.type == "kv" %}<div class="kv">{% for item in block["items"] %}<div><span>{{ item.label }}</span><b>{{ item.value }}</b></div>{% endfor %}</div>
-      {% elif block.type == "callout" %}<div class="callout {{ block.tone }}"><b>{{ block.title }}</b><br />{{ block.text }}</div>
-      {% elif block.type == "table" %}
-        <table>{% if block.caption %}<caption>{{ block.caption }}</caption>{% endif %}
-          <thead><tr>{% for c in block.columns %}<th>{{ c }}</th>{% endfor %}</tr></thead>
-          <tbody>{% for row in block.rows %}<tr>{% for c in row %}<td>{{ c }}</td>{% endfor %}</tr>{% endfor %}</tbody>
-        </table>
+<main>
+  <div class="brand">CredX · Credit Appraisal Memorandum</div>
+  <h1>{{ company.name }}</h1>
+  <div class="meta">{{ case.reference }} · {{ case.facility_type }} · Version {{ version }} · {{ generated_on }} · Strictly confidential</div>
+
+  {% for s in sections %}
+  <section id="{{ s.id }}">
+    <h2>{{ s.title }}</h2>
+    {% set c = s.content %}
+    {% if s.kind == "decision" %}
+      <div class="decision"><b>Recommendation: {{ c.decision }}</b><p>{{ c.narrative }}</p></div>
+      <div class="metrics">{% for m in c.metrics %}<div class="metric"><span>{{ m.label }}</span><strong>{{ m.value }}</strong></div>{% endfor %}</div>
+    {% elif s.kind == "kv" %}
+      <dl class="kv">{% for m in c %}<div><dt>{{ m.label }}</dt><dd>{{ m.value }}</dd></div>{% endfor %}</dl>
+    {% elif s.kind == "text" %}
+      <p>{{ c }}</p>
+    {% elif s.kind == "table" %}
+      <table><thead><tr>{% for h in c.header %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for r in c.rows %}<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+      {% if s.secondary %}
+      <table><thead><tr>{% for h in s.secondary.header %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for r in s.secondary.rows %}<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
       {% endif %}
-    {% endfor %}
-    {% if section.analyst_comment %}<p class="comment">Analyst comment: {{ section.analyst_comment }}</p>{% endif %}
+      {% if s.note %}<p class="note">{{ s.note }}</p>{% endif %}
+    {% elif s.kind == "five_cs" %}
+      <div class="fivecs">{% for x in c %}<div>{{ x.c }}<strong>{{ x.score }}</strong>{{ x.assessment }}
+        <ul>{% for e in x.evidence[:3] %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endfor %}</div>
+    {% else %}
+      <p>{{ c.summary }}</p>
+      {% for b in c.badges or [] %}<span class="badge">{{ b.label }}: <b>{{ b.value }}</b></span>{% endfor %}
+      {% if c.bullets %}<ul>{% for b in c.bullets %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
+      {% for g in c.groups or [] %}{% if g.lines %}<p><b>{{ g.title }}</b></p><ul>{% for l in g.lines %}<li>{{ l }}</li>{% endfor %}</ul>{% endif %}{% endfor %}
+    {% endif %}
+    {% if s.analyst_comment %}<p class="comment"><b>Analyst comment:</b> {{ s.analyst_comment }}</p>{% endif %}
+  </section>
   {% endfor %}
+
+  <table class="signoff"><thead><tr><th>Prepared by (Credit Analyst)</th><th>Reviewed by (Credit Manager)</th><th>Sanctioning Authority</th></tr></thead>
+    <tbody><tr><td style="height:56px"></td><td></td><td></td></tr></tbody></table>
+</main>
 </body>
 </html>

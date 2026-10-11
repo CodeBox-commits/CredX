@@ -1,133 +1,154 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, CircleDot, FileSearch, Network, Play, Upload } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, FileSearch, History, Lightbulb, LineChart, Network, Radar, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 import { FiveCsRadar } from "@/charts/financial-charts";
-import { ScoreGauge } from "@/charts/score-gauge";
 import { useCaseContext } from "@/components/case/case-context";
-import { BlockSkeleton, DecisionBadge, EmptyState, SectionCard, Stat, ToneBadge } from "@/components/common/primitives";
+import { BlockSkeleton, DecisionBadge, Delta, EmptyState, ScoreRing, SectionCard, Sparkline, Stat, ToneBadge } from "@/components/common/primitives";
 import { Button } from "@/components/ui/button";
 import { useTimeline } from "@/hooks/queries";
 import { formatCr, pct, relativeTime, times, titleCase } from "@/lib/format";
-import { riskTone, severityTone, statusTone } from "@/lib/tones";
+import { riskTone, severityTone, statusTone, toneHsl } from "@/lib/tones";
+import { cn } from "@/lib/utils";
+import { Drivers, NextStep, Onboarding } from "@/components/case/overview-panels";
 
 export default function CaseOverviewPage() {
   const { caseId, overview } = useCaseContext();
   const { data: timeline } = useTimeline(caseId);
   if (!overview) return <BlockSkeleton className="h-96" />;
   const { score, research, fraud, facts } = overview;
+  if (!score) return <Onboarding overview={overview} caseId={caseId} />;
 
-  if (!score) {
-    const hasDocs = facts.documents.length > 0;
-    return (
-      <SectionCard title="Get this case to a decision" eyebrow="Next steps">
-        <ol className="grid gap-4 md:grid-cols-3">
-          {[
-            { icon: Upload, title: "Upload the document pack", text: "Annual report, GST returns, bank statement, MCA & legal notices.", done: hasDocs, href: `/cases/${caseId}/documents`, cta: "Upload documents" },
-            { icon: Play, title: "Run full analysis", text: "Research, fraud graph, explainable scoring and CAM run as one async pipeline.", done: false, href: null, cta: null },
-            { icon: FileSearch, title: "Review & decide", text: "Inspect SHAP drivers, add site-visit notes, generate the CAM and record the sanction decision.", done: false, href: null, cta: null },
-          ].map((s, i) => (
-            <li key={s.title} className="rounded-xl border border-border p-4">
-              <div className="mb-2 flex items-center gap-2">
-                {s.done ? <CheckCircle2 className="h-5 w-5 text-success" /> : <span className="flex h-5 w-5 items-center justify-center rounded-full border border-border font-mono text-[10px]">{i + 1}</span>}
-                <s.icon className="h-4 w-4 text-primary" />
-              </div>
-              <p className="font-medium">{s.title}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{s.text}</p>
-              {s.href && !s.done && <Button asChild size="sm" className="mt-3"><Link href={s.href}>{s.cta}</Link></Button>}
-            </li>
-          ))}
-        </ol>
-        {hasDocs && <p className="mt-4 text-sm text-muted-foreground">{facts.documents.length} document(s) ingested — use <b>Run analysis</b> above.</p>}
-      </SectionCard>
-    );
-  }
-
+  const trend = score.ratios.trend;
   const latest = score.ratios.latest;
+  const series = (k: keyof typeof latest) => trend.map((r) => Number(r[k] ?? 0));
+  const flagsBySev = ["CRITICAL", "HIGH", "MEDIUM", "LOW"].map((s) => ({ s, n: facts.red_flags.filter((f) => f.severity === s).length })).filter((x) => x.n);
+
   return (
-    <div className="grid gap-5 xl:grid-cols-3">
-      <SectionCard eyebrow="Decision" title="Credit assessment" className="xl:row-span-2"
-        info="Final score = model score (XGBoost + SHAP) plus bounded, cited overlays from analyst notes and unmodelled red flags.">
-        <ScoreGauge score={score.credit_score} modelScore={score.model_score} label={`${score.rating} · ${score.risk_level} risk`} />
-        <div className="mt-5 grid grid-cols-2 gap-4">
-          <Stat label="PD (1y)" value={pct(score.probability_of_default, 2)} sub={`model ${score.model_score}${score.overlay_total ? `, overlays ${score.overlay_total > 0 ? "+" : ""}${score.overlay_total}` : ""}`} />
-          <Stat label="Approval likelihood" value={pct(score.approval_probability, 0)} />
-          <Stat label="Recommended" value={formatCr(score.recommended_amount)} sub={`of ${formatCr(score.loan_sizing.requested_amount)} · ${score.loan_sizing.binding_constraint}`} />
-          <Stat label="Suggested rate" value={`${score.suggested_rate}%`} sub={`+${score.pricing.spread_over_benchmark}% over benchmark`} />
-        </div>
-        <div className="mt-5 rounded-xl border border-border bg-muted/30 p-3">
-          <div className="mb-2 flex items-center gap-2"><DecisionBadge decision={score.decision} /><span className="text-xs text-muted-foreground">model recommendation</span></div>
-          <ul className="space-y-1 text-sm">{score.decision_reasons.map((r) => <li key={r} className="flex gap-2"><CircleDot className="mt-1 h-3 w-3 shrink-0 text-primary" />{r}</li>)}</ul>
-        </div>
-        <Button asChild variant="outline" className="mt-4 w-full"><Link href={`/cases/${caseId}/decision`}>Open explainability →</Link></Button>
-      </SectionCard>
+    <div className="space-y-6">
+      <NextStep overview={overview} caseId={caseId} />
 
-      <SectionCard eyebrow="Drivers" title="What moved the score" className="xl:col-span-2">
-        <div className="grid gap-5 md:grid-cols-2">
-          <div>
-            <p className="mb-2 text-xs font-semibold text-destructive">Top risk factors</p>
-            <ul className="space-y-1.5 text-sm">{score.top_risk_factors.slice(0, 6).map((r) => <li key={r} className="flex gap-2"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />{r}</li>)}
-              {!score.top_risk_factors.length && <li className="text-muted-foreground">No material negatives.</li>}</ul>
+      <div className="grid gap-6 xl:grid-cols-3">
+        {/* Recommendation */}
+        <SectionCard className="xl:col-span-2" title="Recommendation" icon={Sparkles}
+          info="Final score = model score (XGBoost, SHAP-decomposed) plus bounded, cited overlays from analyst notes and red flags."
+          actions={<Button variant="ghost" size="sm" asChild><Link href={`/cases/${caseId}/decision`}>Explainability <ArrowRight /></Link></Button>}>
+          <div className="flex flex-col gap-6 md:flex-row md:items-center">
+            <div className="flex flex-col items-center gap-2">
+              <ScoreRing score={score.credit_score} size={156} sublabel={`${score.rating} · ${titleCase(score.risk_level.toLowerCase())} risk`} />
+              <p className="numeric text-xs text-muted-foreground">model {score.model_score} {score.overlay_total >= 0 ? "+" : "−"} {Math.abs(score.overlay_total)} overlays</p>
+            </div>
+            <div className="min-w-0 flex-1 space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <DecisionBadge decision={score.decision} className="px-3 py-1 text-sm" />
+                {score.policy.knockouts.length > 0 && <ToneBadge tone="destructive">{score.policy.knockouts.length} policy knock-out</ToneBadge>}
+                {score.policy.deviations.length > 0 && <ToneBadge tone="warning">{score.policy.deviations.length} deviation{score.policy.deviations.length > 1 ? "s" : ""}</ToneBadge>}
+              </div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <Stat label="Recommended" value={formatCr(score.recommended_amount)} sub={`of ${formatCr(score.loan_sizing.requested_amount)}`} />
+                <Stat label="Pricing" value={`${score.suggested_rate.toFixed(2)}%`} sub={`+${score.pricing.spread_over_benchmark.toFixed(2)}% spread`} />
+                <Stat label="PD (1 year)" value={pct(score.probability_of_default, 2)} />
+                <Stat label="Approval odds" value={pct(score.approval_probability, 0)} />
+              </div>
+              <ul className="space-y-1.5 border-t border-border/70 pt-3 text-[13px]">
+                {score.decision_reasons.slice(0, 4).map((r) => <li key={r} className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />{r}</li>)}
+              </ul>
+            </div>
           </div>
-          <div>
-            <p className="mb-2 text-xs font-semibold text-success">Strengths</p>
-            <ul className="space-y-1.5 text-sm">{score.top_strengths.slice(0, 6).map((r) => <li key={r} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />{r}</li>)}</ul>
+        </SectionCard>
+
+        <SectionCard title="Five Cs" icon={Radar} info="Each C blends model drivers and analyst overlays mapped to it.">
+          <FiveCsRadar fiveCs={score.five_cs} />
+          <div className="mt-1 grid grid-cols-5 gap-1 text-center">
+            {Object.entries(score.five_cs).map(([k, c]) => (
+              <div key={k}><p className="numeric text-sm font-semibold" style={{ color: toneHsl[c.score >= 72 ? "success" : c.score >= 55 ? "warning" : "destructive"] }}>{c.score}</p><p className="text-[10px] text-muted-foreground">{c.title}</p></div>
+            ))}
           </div>
-        </div>
-      </SectionCard>
+        </SectionCard>
+      </div>
 
-      <SectionCard eyebrow="Five Cs" title="Credit profile">
-        <FiveCsRadar fiveCs={score.five_cs} />
-      </SectionCard>
+      <div className="grid gap-6 xl:grid-cols-3">
+        <SectionCard className="xl:col-span-2" title="What moved the score" icon={Lightbulb} info="Exact SHAP contributions in score points; green pushes the score up, red pulls it down.">
+          <Drivers score={score} />
+          {score.overlays.length > 0 && (
+            <div className="mt-5 border-t border-border/70 pt-4">
+              <p className="label mb-2">Analyst & document overlays</p>
+              <div className="flex flex-wrap gap-2">
+                {score.overlays.map((o, i) => (
+                  <span key={i} className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border px-2.5 py-1 text-xs" title={o.rationale}>
+                    <span className={cn("numeric font-semibold", o.points >= 0 ? "text-success" : "text-destructive")}>{o.points >= 0 ? "+" : ""}{o.points}</span>
+                    <span className="truncate">{o.label}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </SectionCard>
 
-      <SectionCard eyebrow="Financials" title={`Key ratios · ${score.ratios.latest_year ?? ""}`}>
-        <div className="grid grid-cols-2 gap-4">
-          <Stat label="Revenue" value={formatCr(latest.revenue)} sub={latest.revenue_growth !== null ? `${pct(latest.revenue_growth)} YoY` : undefined} />
-          <Stat label="EBITDA margin" value={pct(latest.ebitda_margin)} />
-          <Stat label="DSCR" value={times(latest.dscr)} />
-          <Stat label="Debt / EBITDA" value={times(latest.debt_to_ebitda)} />
-          <Stat label="Current ratio" value={times(latest.current_ratio)} />
-          <Stat label="Receivable days" value={latest.receivable_days ? Math.round(latest.receivable_days) : "—"} />
-        </div>
-      </SectionCard>
+        <SectionCard title={`Financials · ${score.ratios.latest_year ?? ""}`} icon={LineChart}
+          actions={<Button variant="ghost" size="sm" asChild><Link href={`/cases/${caseId}/financials`}>Spreads <ArrowRight /></Link></Button>}>
+          <ul className="space-y-3.5">
+            {[
+              { label: "Revenue", value: formatCr(latest.revenue), s: series("revenue"), delta: latest.revenue_growth != null ? latest.revenue_growth * 100 : null },
+              { label: "EBITDA margin", value: pct(latest.ebitda_margin), s: series("ebitda_margin") },
+              { label: "DSCR", value: times(latest.dscr), s: series("dscr") },
+              { label: "Debt / EBITDA", value: times(latest.debt_to_ebitda), s: series("debt_to_ebitda"), invert: true },
+            ].map((m) => (
+              <li key={m.label} className="flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-muted-foreground">{m.label}</p>
+                  <p className="numeric flex items-center gap-2 text-[15px] font-semibold">{m.value}{"delta" in m && <Delta value={m.delta} />}</p>
+                </div>
+                <Sparkline values={m.s} tone={m.invert ? (m.s[m.s.length - 1] > m.s[0] ? "destructive" : "success") : m.s[m.s.length - 1] >= m.s[0] ? "success" : "destructive"} />
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
+      </div>
 
-      <SectionCard eyebrow="External" title="Research & forensics" actions={<Button asChild variant="ghost" size="sm"><Link href={`/cases/${caseId}/fraud`}><Network className="mr-1 h-3.5 w-3.5" />Graph</Link></Button>}>
-        <div className="flex flex-wrap gap-2">
-          {research && (<>
-            <ToneBadge tone={riskTone(research.litigation_risk)}>Litigation {research.litigation_risk}</ToneBadge>
-            <ToneBadge tone={statusTone(research.promoter_sentiment)}>Sentiment {research.promoter_sentiment}</ToneBadge>
-            <ToneBadge tone={statusTone(research.sector_outlook)}>Sector {research.sector_outlook}</ToneBadge>
-          </>)}
-          {fraud && <ToneBadge tone={riskTone(fraud.risk_level)}>Fraud {fraud.fraud_score}/100</ToneBadge>}
-        </div>
-        {research && <p className="mt-3 line-clamp-5 text-sm text-muted-foreground">{research.summary}</p>}
-        {fraud && <p className="mt-3 text-sm">{fraud.summary}</p>}
-      </SectionCard>
+      <div className="grid gap-6 xl:grid-cols-3">
+        <SectionCard title="External & forensic view" icon={Network} className="xl:col-span-1"
+          actions={<Button variant="ghost" size="sm" asChild><Link href={`/cases/${caseId}/research`}>Intelligence <ArrowRight /></Link></Button>}>
+          <div className="grid grid-cols-2 gap-2">
+            {research && <>
+              <div className="rounded-xl border border-border/70 p-3"><p className="text-xs text-muted-foreground">Litigation</p><ToneBadge tone={riskTone(research.litigation_risk)} className="mt-1">{research.litigation_risk}</ToneBadge></div>
+              <div className="rounded-xl border border-border/70 p-3"><p className="text-xs text-muted-foreground">Sentiment</p><ToneBadge tone={statusTone(research.promoter_sentiment)} className="mt-1">{research.promoter_sentiment}</ToneBadge></div>
+              <div className="rounded-xl border border-border/70 p-3"><p className="text-xs text-muted-foreground">Sector outlook</p><ToneBadge tone={statusTone(research.sector_outlook)} className="mt-1">{research.sector_outlook}</ToneBadge></div>
+            </>}
+            {fraud && <div className="rounded-xl border border-border/70 p-3"><p className="text-xs text-muted-foreground">Fraud score</p><p className="numeric mt-1 text-sm font-semibold" style={{ color: toneHsl[riskTone(fraud.risk_level)] }}>{fraud.fraud_score}/100</p></div>}
+          </div>
+          {research && <p className="mt-4 line-clamp-4 text-[13px] leading-relaxed text-muted-foreground">{research.summary}</p>}
+        </SectionCard>
 
-      <SectionCard eyebrow="Evidence" title="Red flags from documents" className="xl:col-span-2" bodyClassName="p-0">
-        <ul className="divide-y divide-border">
-          {facts.red_flags.slice(0, 8).map((f) => (
-            <li key={f.label} className="flex items-start gap-3 px-5 py-2.5 text-sm">
-              <ToneBadge tone={severityTone(f.severity)} className="mt-0.5 w-20 justify-center">{f.severity}</ToneBadge>
-              <div className="min-w-0"><p className="font-medium">{f.label}</p><p className="truncate text-xs text-muted-foreground">“{f.evidence}” — {f.filename}{f.page ? `, p.${f.page}` : ""}</p></div>
-            </li>
-          ))}
-          {!facts.red_flags.length && <li className="px-5 py-6"><EmptyState icon={CheckCircle2} title="No red flags extracted" description={facts.positive_signals.join(" · ") || undefined} /></li>}
-        </ul>
-      </SectionCard>
+        <SectionCard title="Evidence from documents" icon={FileSearch} className="xl:col-span-1" bodyClassName="p-0"
+          actions={flagsBySev.length > 0 && <div className="flex gap-1">{flagsBySev.map((f) => <ToneBadge key={f.s} tone={severityTone(f.s)}>{f.n} {f.s.toLowerCase()}</ToneBadge>)}</div>}>
+          <ul className="max-h-[300px] divide-y divide-border/70 overflow-y-auto scrollbar-thin">
+            {facts.red_flags.map((f) => (
+              <li key={f.label} className="flex items-start gap-3 px-5 py-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: toneHsl[severityTone(f.severity)] }} />
+                <div className="min-w-0"><p className="text-[13px] font-medium">{f.label}</p><p className="line-clamp-2 text-xs text-muted-foreground">“{f.evidence}” — {f.filename}{f.page ? `, p.${f.page}` : ""}</p></div>
+              </li>
+            ))}
+            {!facts.red_flags.length && facts.positive_signals.map((p) => (
+              <li key={p} className="flex items-start gap-3 px-5 py-3"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" /><p className="text-[13px]">{p}</p></li>
+            ))}
+            {!facts.red_flags.length && !facts.positive_signals.length && <li className="p-5"><EmptyState compact icon={CheckCircle2} title="No red flags extracted" /></li>}
+          </ul>
+        </SectionCard>
 
-      <SectionCard eyebrow="Activity" title="Timeline" bodyClassName="max-h-80 overflow-y-auto p-0 scrollbar-thin">
-        <ol className="relative ml-6 border-l border-border py-3">
-          {timeline?.slice(0, 25).map((e, i) => (
-            <li key={i} className="mb-3 ml-4">
-              <span className={`absolute -left-[5px] mt-1.5 h-2.5 w-2.5 rounded-full ${e.type === "job" ? "bg-primary" : e.type === "note" ? "bg-accent" : "bg-muted-foreground"}`} />
-              <p className="text-xs text-muted-foreground">{relativeTime(e.at)} · {e.actor ?? "system"}</p>
-              <p className="text-sm">{e.summary ?? titleCase(e.action)}</p>
-            </li>
-          ))}
-        </ol>
-      </SectionCard>
+        <SectionCard title="Timeline" icon={History} bodyClassName="max-h-[340px] overflow-y-auto pt-1 scrollbar-thin">
+          <ol className="relative space-y-4 border-l border-border pl-4">
+            {timeline?.slice(0, 20).map((e, i) => (
+              <li key={i} className="relative">
+                <span className={cn("absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border-2 border-card", e.type === "job" ? "bg-primary" : e.type === "note" ? "bg-accent" : "bg-muted-foreground")} />
+                <p className="text-[13px] leading-snug">{e.summary ?? titleCase(e.action)}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{e.actor?.split("@")[0] ?? "system"} · {relativeTime(e.at)}</p>
+              </li>
+            ))}
+          </ol>
+        </SectionCard>
+      </div>
     </div>
   );
 }

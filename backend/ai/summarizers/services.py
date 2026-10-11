@@ -35,7 +35,8 @@ def cam_narrative(context: dict[str, Any], case_id: str | None, user_id: str | N
 def research_summary(findings: list[dict[str, Any]], draft: str, case_id: str | None) -> tuple[str, str]:
     """LLM-polished research summary when a remote provider exists; deterministic draft otherwise."""
     request = LLMRequest(
-        system=render(RESEARCH_SUMMARY_SYSTEM, findings=[{k: f.get(k) for k in ("title", "snippet", "source", "category", "severity")} for f in findings[:20]]),
+        system=render(RESEARCH_SUMMARY_SYSTEM, findings=[{"n": i + 1, **{k: f.get(k) for k in ("title", "snippet", "source", "category", "severity")}}
+                                                         for i, f in enumerate(findings[:20])]),
         messages=[ChatMessage("user", "Summarise these findings.")],
         max_tokens=500,
         purpose="research_summary",

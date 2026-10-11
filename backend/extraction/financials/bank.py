@@ -1,96 +1,130 @@
-"""Bank statement analytics: monthly credits/debits, balances, bounces, counterparties."""
+"""Bank statements: header facts, transaction parsing, monthly cash-flow, bounces and counterparties."""
 
 from __future__ import annotations
 
 import re
+import statistics
+from collections import defaultdict
+from datetime import datetime
 
-from ..normalization.amounts import parse_amount
-from ..normalization.fiscal import parse_month
-from ..normalization.schema import BankMonthData, BankSummary, Counterparty, ExtractedTable
+from extraction.normalization.amounts import find_amounts
 
-_BANKS = [
-    "State Bank of India", "HDFC Bank", "ICICI Bank", "Axis Bank", "Kotak Mahindra Bank", "Bank of Baroda",
-    "Punjab National Bank", "Canara Bank", "Union Bank of India", "IndusInd Bank", "Yes Bank", "IDFC First Bank",
-    "Federal Bank", "Bank of India", "Indian Bank", "RBL Bank", "South Indian Bank", "Karur Vysya Bank",
-]
-
-_COLS = [
-    (re.compile(r"credit|deposit|inflow|receipts", re.I), "credits"),
-    (re.compile(r"debit|withdrawal|outflow|payments", re.I), "debits"),
-    (re.compile(r"avg|average", re.I), "avg_balance"),
-    (re.compile(r"closing|eod|end balance", re.I), "closing_balance"),
-    (re.compile(r"inward.*(?:bounce|return)|(?:bounce|return).*inward", re.I), "inward_bounces"),
-    (re.compile(r"bounce|return|dishono", re.I), "outward_bounces"),
-    (re.compile(r"emi|loan repay", re.I), "emi_debits"),
-    (re.compile(r"cash dep", re.I), "cash_deposits"),
-]
-
-_INT_FIELDS = {"inward_bounces", "outward_bounces"}
+_BANK_RE = re.compile(
+    r"\b((?:State Bank of India|Bank of Baroda|Bank of India|Punjab National Bank|Canara Bank|Union Bank of India|Indian Bank|"
+    r"Indian Overseas Bank|Central Bank of India|UCO Bank|Bank of Maharashtra|Punjab & Sind Bank|HDFC Bank|ICICI Bank|Axis Bank|"
+    r"Kotak Mahindra Bank|IndusInd Bank|Yes Bank|IDFC First Bank|Federal Bank|RBL Bank|South Indian Bank|Karur Vysya Bank|"
+    r"City Union Bank|Bandhan Bank|DCB Bank|Tamilnad Mercantile Bank|Karnataka Bank|Jammu & Kashmir Bank|AU Small Finance Bank))\b",
+    re.I,
+)
+_TXN_RE = re.compile(
+    r"^(\d{2}[-/.]\d{2}[-/.]\d{4})\s+(.+?)\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})\s*(?:cr|dr)?$", re.I | re.M)
+_BOUNCE_RE = re.compile(r"(?:chq|cheque|ecs|nach)[^\n]{0,15}(?:return|bounce|dishono)|insufficient funds|funds insufficient", re.I)
+_NEG_RE = re.compile(r"\b(?:no|not|nil|without)\b[^.\n]{0,30}(?:chq|cheque|ecs|nach|return|bounce)", re.I)
+_GENERIC = re.compile(r"salary|payroll|gst payment|cbic|emi|loan a/c|electricity|interest|charges|tax|chq return|cash", re.I)
 
 
-def _months_from_tables(tables: list[ExtractedTable], multiplier: float) -> list[BankMonthData]:
-    months: dict[str, BankMonthData] = {}
-    for table in tables:
-        col_map: dict[int, str] = {}
-        for idx, head in enumerate(table.header):
-            for pattern, field in _COLS:
-                if pattern.search(head) and field not in col_map.values():
-                    col_map[idx] = field
-                    break
-        if "credits" not in col_map.values():
+def _num(raw: str) -> float:
+    return float(raw.replace(",", ""))
+
+
+def _date(raw: str) -> datetime | None:
+    for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%d.%m.%Y"):
+        try:
+            return datetime.strptime(raw, fmt)
+        except ValueError:
             continue
-        for row in table.rows:
-            month = parse_month(row[0])
-            if not month:
-                continue
-            item = months.setdefault(month, BankMonthData(month=month))
-            for idx, field in col_map.items():
-                if idx >= len(row):
-                    continue
-                if field in _INT_FIELDS:
-                    digits = re.search(r"\d+", row[idx])
-                    setattr(item, field, int(digits.group()) if digits else 0)
-                else:
-                    value = parse_amount(row[idx], default_multiplier=multiplier)
-                    if value is not None:
-                        setattr(item, field, value)
-    return sorted(months.values(), key=lambda m: m.month)
+    return None
 
 
-def extract_bank(pages: list[str], tables: list[ExtractedTable], *, multiplier: float) -> BankSummary:
-    text = "\n".join(pages)
-    lowered = text.lower()
-    summary = BankSummary(months=_months_from_tables(tables, multiplier))
-    summary.bank_name = next((b for b in _BANKS if b.lower() in lowered), None)
-    acct = re.search(r"account (?:number|no\.?)[^\d\n]{0,25}(?:x+|\*+)?(\d{4})\b", text, re.I) or re.search(
-        r"ending (?:with )?(\d{4})", text, re.I
-    )
-    if acct:
-        summary.account_ref = f"XX{acct.group(1)}"
+def _party(narration: str) -> str | None:
+    parts = [p.strip() for p in narration.split("/") if p.strip()]
+    if len(parts) < 2 or _GENERIC.search(narration):
+        return None
+    name = parts[-1]
+    if re.fullmatch(r"[\dA-Z]{0,4}\d{6,}", name):
+        return None
+    return " ".join(w.capitalize() for w in name.split())
 
-    for attr, pattern in (
-        ("opening_balance", r"opening balance[^\n\d₹]{0,15}((?:rs\.?|inr|₹)?\s*[\d,.]+\s*(?:crores?|cr|lakhs?|lacs?)?)"),
-        ("closing_balance", r"closing balance[^\n\d₹]{0,15}((?:rs\.?|inr|₹)?\s*[\d,.]+\s*(?:crores?|cr|lakhs?|lacs?)?)"),
-        ("total_credits", r"total credits?[^\n\d₹]{0,15}((?:rs\.?|inr|₹)?\s*[\d,.]+\s*(?:crores?|cr|lakhs?|lacs?)?)"),
-        ("total_debits", r"total debits?[^\n\d₹]{0,15}((?:rs\.?|inr|₹)?\s*[\d,.]+\s*(?:crores?|cr|lakhs?|lacs?)?)"),
-    ):
-        m = re.search(pattern, text, re.I)
-        if m:
-            setattr(summary, attr, parse_amount(m.group(1), default_multiplier=multiplier))
 
-    if summary.months:
-        summary.total_credits = summary.total_credits or round(sum(m.credits for m in summary.months), 2)
-        summary.total_debits = summary.total_debits or round(sum(m.debits for m in summary.months), 2)
-    bounce_words = len(re.findall(r"cheque (?:returned|bounced?|dishonou?red)|insufficient funds|ecs return|nach return", lowered))
-    summary.bounce_count = sum(m.outward_bounces for m in summary.months) or bounce_words
-    breach = re.search(r"above sanctioned (?:levels?|limit)[^\n\d]{0,20}(\d+)\s*days", lowered) or re.search(
-        r"overdrawn[^\n\d]{0,20}(\d+)\s*days", lowered
-    )
-    summary.overdraft_breach_days = int(breach.group(1)) if breach else 0
+def _labelled_amount(text: str, label: str) -> float | None:
+    m = re.search(label + r"[^\n:]{0,15}:?\s*([^\n]+)", text, re.I)
+    if not m:
+        return None
+    amounts = find_amounts(m.group(1), money_only=True) or find_amounts(m.group(1))
+    return amounts[0][0] if amounts else None
 
-    for m in re.finditer(r"(?:top (?:credit|receipt) from|received from|paid to|transfer to)\s+([A-Z][A-Za-z0-9&.' -]{3,60}?)\s*[:\-]\s*((?:rs\.?|inr|₹)?\s*[\d,.]+\s*(?:crores?|cr|lakhs?)?)", text):
-        direction = "customer" if "from" in m.group(0).lower() else "supplier"
-        summary.counterparties.append(
-            Counterparty(name=m.group(1).strip(), amount=parse_amount(m.group(2), default_multiplier=multiplier), role=direction)  # type: ignore[arg-type]
-        )
-    return summary
+
+def extract_bank(text: str) -> dict:
+    txns = []
+    for m in _TXN_RE.finditer(text):
+        when = _date(m.group(1))
+        if when is None:
+            continue
+        txns.append({"date": when, "narration": m.group(2).strip(), "debit": _num(m.group(3)), "credit": _num(m.group(4)),
+                     "balance": _num(m.group(5))})
+    bounces = sum(1 for t in txns if _BOUNCE_RE.search(t["narration"]))
+    if not txns:  # summary statements: count narrative mentions instead
+        bounces = sum(1 for line in text.splitlines() if _BOUNCE_RE.search(line) and not _NEG_RE.search(line))
+
+    monthly: dict[str, dict] = defaultdict(lambda: {"credits": 0.0, "debits": 0.0, "bounces": 0, "closing_balance": None, "count": 0})
+    parties: dict[str, dict] = {}
+    for t in txns:
+        month = t["date"].strftime("%Y-%m")
+        row = monthly[month]
+        row["credits"] += t["credit"]
+        row["debits"] += t["debit"]
+        row["count"] += 1
+        row["closing_balance"] = t["balance"]
+        if _BOUNCE_RE.search(t["narration"]):
+            row["bounces"] += 1
+        if name := _party(t["narration"]):
+            p = parties.setdefault(name, {"name": name, "credits": 0.0, "debits": 0.0, "count": 0})
+            p["credits"] += t["credit"]
+            p["debits"] += t["debit"]
+            p["count"] += 1
+    months = [{"month": k, **{f: round(v, 2) if isinstance(v, float) else v for f, v in row.items()}}
+              for k, row in sorted(monthly.items())]
+    credits = [m["credits"] for m in months]
+    volatility = round(statistics.pstdev(credits) / statistics.mean(credits), 3) if len(credits) >= 2 and statistics.mean(credits) else None
+    balances = [t["balance"] for t in txns]
+    counterparties = sorted(parties.values(), key=lambda p: -(p["credits"] + p["debits"]))
+    for p in counterparties:
+        p["direction"] = "customer" if p["credits"] >= p["debits"] else "supplier"
+        p["credits"], p["debits"] = round(p["credits"], 2), round(p["debits"], 2)
+
+    account = re.search(r"account (?:number|no\.?)[^\n\d]{0,20}([X*\d]{4,20})", text, re.I)
+    period = re.search(r"(?:statement )?period[^\n:]{0,5}:?\s*([A-Za-z]+ \d{4})\s+(?:to|-)\s+([A-Za-z]+ \d{4})", text, re.I)
+    bank_name = _BANK_RE.search(text)
+    return {
+        "bank_name": bank_name.group(1) if bank_name else None,
+        "account_masked": ("XXXX" + account.group(1)[-4:]) if account else None,
+        "period_start": _month_start(period.group(1)) if period else (txns[0]["date"].date().isoformat() if txns else None),
+        "period_end": _month_end(period.group(2)) if period else (txns[-1]["date"].date().isoformat() if txns else None),
+        "opening_balance": _labelled_amount(text, "opening balance"),
+        "closing_balance": _labelled_amount(text, "closing balance"),
+        "total_credits": round(sum(t["credit"] for t in txns), 2) if txns else None,
+        "total_debits": round(sum(t["debit"] for t in txns), 2) if txns else None,
+        "average_balance": round(statistics.mean(balances), 2) if balances else None,
+        "transaction_count": len(txns),
+        "bounce_count": bounces,
+        "overdraw_days": sum(1 for b in balances if b < 0),
+        "credit_volatility": volatility,
+        "monthly": months,
+        "counterparties": counterparties[:25],
+    }
+
+
+def _month_start(raw: str) -> str | None:
+    try:
+        return datetime.strptime(raw, "%B %Y").date().isoformat()
+    except ValueError:
+        return None
+
+
+def _month_end(raw: str) -> str | None:
+    try:
+        d = datetime.strptime(raw, "%B %Y")
+    except ValueError:
+        return None
+    nxt = d.replace(year=d.year + (d.month == 12), month=d.month % 12 + 1)
+    return (nxt.date().fromordinal(nxt.toordinal() - 1)).isoformat()

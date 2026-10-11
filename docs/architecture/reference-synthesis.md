@@ -1,6 +1,6 @@
 # CredX Architecture Synthesis
 
-CredX Phase 1 intentionally merges the best ideas from the reference repositories while simplifying their rough edges into one deployable platform foundation.
+CredX merges the best ideas from the reference repositories while simplifying their rough edges into one deployable platform foundation.
 
 ## What We Kept
 
@@ -32,9 +32,10 @@ CredX Phase 1 intentionally merges the best ideas from the reference repositorie
 - Designed fraud graph logic to be `NetworkX`/JSON friendly now while staying Neo4j-ready later.
 - Kept AI provider orchestration modular without forcing an LLM dependency into the core scoring path.
 
-## Current Phase 1 State
+## Where each idea lives
 
-- `frontend/` now contains the React application source.
-- `backend/app/api` exposes coherent routes for uploads, research, fraud, underwriting, CAM, and copilot.
-- `backend/app/extraction`, `scoring`, `research`, `fraud`, `cam`, and `ai` provide domain modules that can grow phase by phase.
-- Docker, CI, env templates, and backend tests are included so the repo is moving toward realistic deployment instead of demo-only structure.
+- `frontend/` — Next.js workspace: top navigation, case stage stepper, live job tracking, explainability views.
+- `backend/extraction` — layered PDF/OCR parsing and India-specific extractors (GST returns, bank statements, MCA, legal notices).
+- `backend/research`, `backend/fraud` — cited secondary research and the NetworkX entity graph with GST forensics.
+- `backend/scoring` — monotone XGBoost PD model, exact TreeSHAP waterfall, policy rule book, sizing and pricing.
+- `backend/cam`, `backend/ai` — one CAM section model rendered to HTML/PDF/DOCX; multi-provider copilot with a grounded local fallback.

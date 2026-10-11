@@ -34,7 +34,6 @@ export const errorMessage = (e: unknown) => (e instanceof ApiError ? e.message :
 export const useDashboard = () => useQuery({ queryKey: qk.dashboard, queryFn: api.dashboard, refetchInterval: 15_000 });
 export const useCases = (params: { q?: string; status?: string; risk?: string } = {}) =>
   useQuery({ queryKey: qk.cases(params), queryFn: () => api.cases.list({ ...params, limit: 200 }) });
-export const useOverview = (id: string) => useQuery({ queryKey: qk.overview(id), queryFn: () => api.cases.overview(id) });
 export const useDocuments = (id: string) =>
   useQuery({
     queryKey: qk.documents(id),

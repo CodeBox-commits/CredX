@@ -203,7 +203,7 @@ def run_research_step(db: Session, case: CreditCase, progress) -> ResearchReport
         sector_outlook=result["sector_outlook"], overall_risk=result["overall_risk"], sentiment_score=result["sentiment_score"],
         litigation_score=result["litigation_score"], summary=result["summary"],
         sector={**result["sector"], "litigation_cases": result["litigation_cases"], "summary_provider": result["summary_provider"]},
-        mca=result["mca"], providers=result["providers"], queries=result["queries"],
+        mca=result["mca"] or {}, providers=result["providers"], queries=result["queries"],
     )
     db.add(report)
     db.flush()

@@ -1,59 +1,72 @@
-"""Litigation intelligence: classify legal exposure from news + ingested legal documents."""
+"""Litigation intelligence: weight legal exposure from uploaded legal documents and public-domain findings.
+
+Weights reflect how Indian credit committees read legal risk: IBC/NCLT and investigative-agency action
+dominate; arbitration where the *borrower* is the claimant is a receivable, not a liability, and is
+heavily discounted. Large claims relative to revenue scale the weight up.
+"""
 
 from __future__ import annotations
 
 import re
+from typing import Any
 
-from extraction.normalization.schema import LegalMatter
-
-from ..types import Finding, Level
-
-_PATTERNS: list[tuple[re.Pattern[str], str, Level]] = [
-    (re.compile(r"\bnclt\b|insolvency|\bibc\b|cirp|resolution professional", re.I), "Insolvency (IBC/NCLT)", "HIGH"),
-    (re.compile(r"\bdrt\b|debt recovery tribunal|sarfaesi", re.I), "Debt recovery", "HIGH"),
-    (re.compile(r"wilful defaulter", re.I), "Wilful defaulter", "CRITICAL"),
-    (re.compile(r"\bed\b raid|enforcement directorate|money laundering|\bpmla\b|\bsfio\b|\bcbi\b", re.I), "Criminal / investigative", "CRITICAL"),
-    (re.compile(r"section 138|cheque bounce|dishonou?r", re.I), "Cheque dishonour (NI Act)", "MEDIUM"),
-    (re.compile(r"gst (?:evasion|fraud|demand)|dggi|show[- ]cause", re.I), "Tax dispute", "MEDIUM"),
-    (re.compile(r"arbitration|high court|lawsuit|suit filed|petition", re.I), "Commercial litigation", "MEDIUM"),
+CATEGORIES: list[tuple[str, str, float]] = [  # (category, pattern, base weight)
+    ("wilful_defaulter", r"wilful defaulter", 50),
+    ("criminal", r"enforcement directorate|\bpmla\b|money laundering|\bsfio\b|\bcbi\b|\bed\b raid|arrested|chargesheet", 40),
+    ("insolvency", r"\bnclt\b|insolvency|\bibc\b|cirp|bankruptcy|winding[- ]up", 35),
+    ("recovery", r"sarfaesi|\bdrt\b|debts? recovery", 30),
+    ("cheque_dishonour", r"section 138|negotiable instruments|cheque (?:bounce|dishono)|dishono", 15),
+    ("tax", r"gst (?:evasion|demand|fraud)|show[- ]cause|income[- ]tax (?:demand|search)|dggi", 15),
+    ("arbitration", r"arbitra", 12),
+    ("labour", r"labou?r court|industrial dispute|\bpf\b dues|esic|workers'? union", 6),
 ]
-_SEV = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
+_COMPILED = [(cat, re.compile(p, re.I), w) for cat, p, w in CATEGORIES]
+WEIGHT = {cat: w for cat, _, w in CATEGORIES} | {"civil": 8}
+_STATUS = {"threatened": 0.8, "pending": 1.0, "adjudicated": 1.25, "closed": 0.2}
+_SUFFIX = re.compile(r"\b(?:private|pvt|limited|ltd|llp|the|co|company)\b\.?|\(.*?\)|[^a-z0-9 ]", re.I)
 
 
-def classify_litigation(text: str) -> tuple[str, Level] | None:
-    for pattern, label, level in _PATTERNS:
+def categorize(text: str) -> str:
+    for cat, pattern, _ in _COMPILED:
         if pattern.search(text):
-            return label, level
-    return None
+            return cat
+    return "civil"
 
 
-def litigation_findings(matters: list[LegalMatter]) -> list[Finding]:
-    return [
-        Finding(
-            category="litigation",
-            title=f"{m.case_type} — {m.forum}" + (f" ({m.reference})" if m.reference else ""),
-            summary=(m.summary or f"{m.case_type} before {m.forum}.")[:400]
-            + (f" Claim amount: ₹{m.amount:,.0f}." if m.amount else ""),
-            source_name="Uploaded legal documents",
-            sentiment="NEGATIVE" if m.status != "CLOSED" else "NEUTRAL",
-            sentiment_score=-0.6 if m.status != "CLOSED" else 0.0,
-            severity=m.severity,
-            relevance=0.95,
-            tags=["document", m.status.lower()],
-            provider="documents",
-        )
-        for m in matters
-    ]
+def _norm(name: str | None) -> str:
+    return " ".join(_SUFFIX.sub(" ", (name or "").lower()).split())
 
 
-def litigation_risk(findings: list[Finding]) -> Level:
-    legal = [f for f in findings if f.category == "litigation"]
-    if not legal:
-        return "LOW"
-    worst = max(_SEV[f.severity] for f in legal)
-    open_high = sum(1 for f in legal if _SEV[f.severity] >= 3 and "closed" not in f.tags)
-    if worst >= 4 or open_high >= 2:
-        return "CRITICAL" if worst >= 4 else "HIGH"
-    if worst == 3:
-        return "HIGH"
-    return "MEDIUM" if len(legal) >= 1 else "LOW"
+def _is_borrower(party: str | None, company_name: str) -> bool:
+    a, b = _norm(party), _norm(company_name)
+    return bool(a and b and (a == b or a in b or b in a))
+
+
+def litigation_score(legal: list[dict[str, Any]], findings: list[dict[str, Any]], revenue: float | None,
+                     company_name: str) -> dict[str, Any]:
+    cases: list[dict[str, Any]] = []
+    for doc in legal:
+        types = doc.get("case_types") or []
+        cat = max((categorize(t) for t in types), key=lambda c: WEIGHT[c], default="civil")
+        weight = WEIGHT[cat] * _STATUS.get(doc.get("status") or "pending", 1.0)
+        claim = doc.get("claim_amount")
+        if claim and revenue:
+            weight *= 1 + min(1.0, 4 * claim / revenue)
+        claimant = _is_borrower(doc.get("claimant_name"), company_name)
+        if claimant:
+            weight *= 0.25
+        cases.append({"source": doc.get("filename") or "Uploaded document", "title": doc.get("title"), "types": types,
+                      "forum": doc.get("forum"), "claim_amount": claim, "status": doc.get("status"),
+                      "weight": round(weight, 1), "borrower_is_claimant": claimant})
+    for f in findings:
+        if f.get("category") != "litigation" or f.get("provider") == "documents":
+            continue  # document-derived findings are already counted above
+        cat = categorize(f"{f.get('title', '')} {f.get('snippet') or ''}")
+        favourable = (f.get("sentiment") or 0) > 0.2  # e.g. an award in the borrower's favour
+        cases.append({"source": f.get("source"), "title": f.get("title"), "types": [cat.replace("_", " ").title()],
+                      "forum": None, "claim_amount": None, "status": "reported",
+                      "weight": float(WEIGHT[cat]) * (0.25 if favourable else 1.0), "borrower_is_claimant": favourable})
+    score = round(min(100.0, sum(c["weight"] for c in cases)), 1)
+    severe = any(categorize(" ".join(c["types"])) in ("criminal", "wilful_defaulter") for c in cases)
+    level = "HIGH" if score >= 45 or severe else "MEDIUM" if score >= 15 else "LOW"
+    return {"level": level, "score": score, "cases": sorted(cases, key=lambda c: -c["weight"])}

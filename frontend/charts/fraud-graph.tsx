@@ -1,7 +1,7 @@
 "use client";
 
 import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY, type SimulationLinkDatum, type SimulationNodeDatum } from "d3-force";
-import { Building2, Maximize2, User } from "lucide-react";
+import { Building2, Maximize2, User, ZoomIn, ZoomOut } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -28,11 +28,11 @@ function layout(nodes: GraphNode[], links: GraphLink[], borrowerId: string) {
     .filter((l) => ids.has(l.source) && ids.has(l.target))
     .map((l, i) => ({ ...l, key: `${l.source}-${l.target}-${l.type}-${i}` }));
   const sim = forceSimulation<SimNode>(simNodes)
-    .force("link", forceLink<SimNode, SimLink>(simLinks).id((d) => d.id).distance((l) => (l.type === "DIRECTOR_OF" ? 70 : 150)).strength(0.6))
-    .force("charge", forceManyBody().strength(-520))
-    .force("collide", forceCollide<SimNode>().radius((d) => d.size + 18))
-    .force("x", forceX(W / 2).strength(0.04))
-    .force("y", forceY(H / 2).strength(0.06))
+    .force("link", forceLink<SimNode, SimLink>(simLinks).id((d) => d.id).distance((l) => (l.type === "DIRECTOR_OF" ? 95 : 210)).strength(0.55))
+    .force("charge", forceManyBody().strength(-1100))
+    .force("collide", forceCollide<SimNode>().radius((d) => d.size + 34))
+    .force("x", forceX(W / 2).strength(0.025))
+    .force("y", forceY(H / 2).strength(0.05))
     .stop();
   for (let i = 0; i < 320; i++) sim.tick();
   return { simNodes, simLinks };
@@ -44,6 +44,7 @@ export function FraudGraph({ nodes, links, borrowerId, onSelect, selectedId }: {
   const [showPeople, setShowPeople] = useState(true);
   const [flaggedOnly, setFlaggedOnly] = useState(false);
   const [hover, setHover] = useState<string | null>(null);
+  const [flow, setFlow] = useState(true);
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const drag = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -84,13 +85,18 @@ export function FraudGraph({ nodes, links, borrowerId, onSelect, selectedId }: {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border bg-[radial-gradient(circle_at_center,hsl(var(--primary)/0.06),transparent_70%)]">
-      <div className="absolute left-3 top-3 z-10 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-background/85 px-3 py-2 text-xs backdrop-blur">
+    <div className="relative overflow-hidden rounded-xl border border-border bg-dots bg-[length:18px_18px]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,hsl(var(--primary)/0.08),transparent_65%)]" />
+      <div className="absolute left-3 top-3 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface/90 px-3 py-2 text-xs shadow-sm backdrop-blur">
         <label className="flex items-center gap-1.5"><Switch checked={showPeople} onCheckedChange={setShowPeople} aria-label="Show directors" /> Directors</label>
         <label className="flex items-center gap-1.5"><Switch checked={flaggedOnly} onCheckedChange={setFlaggedOnly} aria-label="Flagged only" /> Flagged only</label>
-        <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setView({ x: 0, y: 0, k: 1 })} aria-label="Reset view"><Maximize2 className="h-3.5 w-3.5" /></Button>
+        <label className="flex items-center gap-1.5"><Switch checked={flow} onCheckedChange={setFlow} aria-label="Animate money flow" /> Money flow</label>
+        <span className="h-4 w-px bg-border" />
+        <Button variant="ghost" size="icon-sm" className="h-7 w-7" onClick={() => setView((v) => ({ ...v, k: Math.min(2.5, v.k * 1.2) }))} aria-label="Zoom in"><ZoomIn className="h-3.5 w-3.5" /></Button>
+        <Button variant="ghost" size="icon-sm" className="h-7 w-7" onClick={() => setView((v) => ({ ...v, k: Math.max(0.5, v.k / 1.2) }))} aria-label="Zoom out"><ZoomOut className="h-3.5 w-3.5" /></Button>
+        <Button variant="ghost" size="icon-sm" className="h-7 w-7" onClick={() => setView({ x: 0, y: 0, k: 1 })} aria-label="Reset view"><Maximize2 className="h-3.5 w-3.5" /></Button>
       </div>
-      <div className="absolute bottom-3 left-3 z-10 flex flex-wrap gap-3 rounded-lg border border-border bg-background/85 px-3 py-2 text-[11px] backdrop-blur">
+      <div className="absolute bottom-3 left-3 z-10 flex flex-wrap gap-3 rounded-xl border border-border bg-surface/90 px-3 py-2 text-[11px] shadow-sm backdrop-blur">
         <span className="flex items-center gap-1.5"><span className="h-0.5 w-5 rounded" style={{ background: LINK_COLOR.PAYS }} />Payments</span>
         <span className="flex items-center gap-1.5"><span className="h-0.5 w-5 rounded" style={{ background: LINK_COLOR.INVOICES }} />Invoices</span>
         <span className="flex items-center gap-1.5"><span className="h-0.5 w-5 border-t border-dashed border-muted-foreground" />Director of</span>
@@ -156,6 +162,16 @@ export function FraudGraph({ nodes, links, borrowerId, onSelect, selectedId }: {
                 >
                   <title>{`${l.type} ${l.amount ? formatCr(l.amount) : ""}${l.count ? ` · ${l.count} txns` : ""}`}</title>
                 </path>
+                {flow && l.flagged && l.type !== "DIRECTOR_OF" && !faded && [0, 0.5].map((offset) => (
+                  <circle key={offset} r={3.2} fill="hsl(var(--destructive))" className="pointer-events-none">
+                    <animateMotion dur="2.4s" begin={`${offset * 2.4}s`} repeatCount="indefinite" path={`M ${s.x} ${s.y} Q ${mx} ${my} ${ex} ${ey}`} />
+                  </circle>
+                ))}
+                {flow && !l.flagged && l.type === "PAYS" && !faded && (
+                  <circle r={2.2} fill={color} opacity={0.8} className="pointer-events-none">
+                    <animateMotion dur="3.6s" repeatCount="indefinite" path={`M ${s.x} ${s.y} Q ${mx} ${my} ${ex} ${ey}`} />
+                  </circle>
+                )}
                 {l.amount && view.k > 0.9 && !faded && (
                   <text x={mx} y={my} textAnchor="middle" className="pointer-events-none fill-muted-foreground font-mono text-[9px]">{formatCr(l.amount, 1)}</text>
                 )}
@@ -183,14 +199,20 @@ export function FraudGraph({ nodes, links, borrowerId, onSelect, selectedId }: {
                 aria-label={`${n.label}${n.flagged ? ", flagged" : ""}`}
                 onKeyDown={(e) => e.key === "Enter" && onSelect?.(n)}
               >
+                {isBorrower && <circle r={r + 10} fill="hsl(var(--primary))" opacity={0.12} />}
                 {n.flagged && <circle r={r + 7} fill="none" stroke="hsl(var(--destructive))" strokeOpacity={0.5} strokeWidth={2} className="animate-pulse" />}
                 {selectedId === n.id && <circle r={r + 4} fill="none" stroke="hsl(var(--foreground))" strokeWidth={1.5} />}
                 {n.type === "person" ? (
-                  <rect x={-r} y={-r} width={r * 2} height={r * 2} rx={4} fill={fill} />
+                  <rect x={-r} y={-r} width={r * 2} height={r * 2} rx={r * 0.45} fill={fill} stroke="hsl(var(--background))" strokeWidth={2} />
                 ) : (
-                  <circle r={r} fill={fill} stroke="hsl(var(--background))" strokeWidth={2} />
+                  <circle r={r} fill={fill} stroke="hsl(var(--background))" strokeWidth={2.5} />
                 )}
-                <text y={r + 13} textAnchor="middle" className={cn("pointer-events-none fill-foreground text-[10px]", isBorrower && "font-semibold")}>
+                {(n.type === "person" || isBorrower) && (
+                  <text textAnchor="middle" dy="0.35em" className="pointer-events-none fill-white font-semibold" style={{ fontSize: Math.max(8, r * 0.75) }}>
+                    {n.label.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
+                  </text>
+                )}
+                <text y={r + 14} textAnchor="middle" paintOrder="stroke" stroke="hsl(var(--background))" strokeWidth={3} className={cn("pointer-events-none fill-foreground text-[10px]", isBorrower && "text-[11px] font-semibold")}>
                   {n.label.length > 26 ? `${n.label.slice(0, 24)}…` : n.label}
                 </text>
               </g>

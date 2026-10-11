@@ -5,10 +5,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from database.base import Base, IdMixin, JSONType, TimestampMixin
+from database.base import Base, IdMixin, JSONType, TimestampMixin, UTCDateTime
 from models.core import User
 from models.enums import EscalationStatus, JobStatus, NoteKind, OverrideStatus
 
@@ -44,7 +44,7 @@ class ManualOverride(IdMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(16), default=OverrideStatus.PENDING, index=True)
     requested_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     reviewed_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     review_comment: Mapped[str | None] = mapped_column(Text)
 
     requested_by: Mapped[User | None] = relationship(foreign_keys=[requested_by_id], lazy="joined")
@@ -61,7 +61,7 @@ class Escalation(IdMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(16), default=EscalationStatus.OPEN, index=True)
     resolution: Mapped[str | None] = mapped_column(Text)
     resolved_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
     raised_by: Mapped[User | None] = relationship(foreign_keys=[raised_by_id], lazy="joined")
     resolved_by: Mapped[User | None] = relationship(foreign_keys=[resolved_by_id], lazy="joined")
@@ -87,8 +87,8 @@ class Job(IdMixin, TimestampMixin, Base):
     backend: Mapped[str] = mapped_column(String(16), default="thread")
     external_id: Mapped[str | None] = mapped_column(String(64))
     created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     duration_ms: Mapped[int | None] = mapped_column(Integer)
 
 
@@ -98,7 +98,7 @@ class AuditLog(IdMixin, Base):
     __tablename__ = "audit_logs"
     __table_args__ = (Index("ix_audit_logs_entity", "entity_type", "entity_id"),)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), index=True)
     actor_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
     actor_email: Mapped[str | None] = mapped_column(String(255))
     action: Mapped[str] = mapped_column(String(64), index=True)
@@ -125,7 +125,7 @@ class CopilotMessage(IdMixin, TimestampMixin, Base):
 class AiUsage(IdMixin, Base):
     __tablename__ = "ai_usage"
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), index=True)
     provider: Mapped[str] = mapped_column(String(32), index=True)
     model: Mapped[str] = mapped_column(String(80))
     purpose: Mapped[str] = mapped_column(String(40))

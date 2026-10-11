@@ -1,49 +1,45 @@
-"""Provider-agnostic LLM interface."""
+"""Provider-agnostic LLM contract shared by every provider and the router."""
 
 from __future__ import annotations
 
-from typing import Any, Literal, Protocol
+from dataclasses import dataclass, field
+from typing import Any, Protocol
 
-from pydantic import BaseModel, Field
+
+class LLMError(RuntimeError):
+    """A provider could not produce an answer (network, quota, refusal, empty output)."""
 
 
-class ChatMessage(BaseModel):
-    role: Literal["user", "assistant"]
+@dataclass
+class ChatMessage:
+    role: str  # "user" | "assistant"
     content: str
 
 
-class LLMRequest(BaseModel):
-    purpose: str  # copilot | cam_narrative | risk_explanation | document_summary | research_summary
+@dataclass
+class LLMRequest:
     system: str
     messages: list[ChatMessage]
-    max_tokens: int | None = None
-    # Structured case context; LLM providers see it rendered inside the prompt,
+    max_tokens: int = 1200
+    purpose: str = "general"  # copilot | cam_narrative | research_summary
+    # Structured case context. Remote providers see it rendered in the system prompt;
     # the local provider reasons over it directly.
-    context: dict[str, Any] = Field(default_factory=dict)
-    case_id: str | None = None
-    user_id: str | None = None
+    context: dict[str, Any] = field(default_factory=dict)
 
 
-class LLMResponse(BaseModel):
+@dataclass
+class LLMResult:
     text: str
     provider: str
     model: str
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    latency_ms: int = 0
-    fallback_from: str | None = None
-    citations: list[dict[str, Any]] = Field(default_factory=list)
-
-
-class ProviderError(RuntimeError):
-    def __init__(self, message: str, *, retryable: bool = False) -> None:
-        super().__init__(message)
-        self.retryable = retryable
+    input_tokens: int = 0
+    output_tokens: int = 0
+    latency_ms: float = 0.0
+    fallback_used: bool = False
 
 
 class LLMProvider(Protocol):
     name: str
-    model: str
 
     def available(self) -> bool: ...
-    def complete(self, request: LLMRequest) -> LLMResponse: ...
+    def complete(self, request: LLMRequest) -> LLMResult: ...

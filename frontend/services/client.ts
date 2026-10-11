@@ -5,6 +5,10 @@ import { useAuth } from "@/store/auth";
 // Same-origin by default (Next rewrites /api/v1 -> FastAPI). Set NEXT_PUBLIC_API_URL to call the API directly.
 export const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "/api/v1").replace(/\/$/, "");
 
+/** NEXT_PUBLIC_DEMO_MODE=true serves fictional fixtures from an in-browser mock API (no backend needed). */
+export const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+const demo = () => import("./demo/handler");
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -20,6 +24,12 @@ export class ApiError extends Error {
 type Options = Omit<RequestInit, "body"> & { body?: unknown; raw?: boolean };
 
 export async function request<T>(path: string, opts: Options = {}): Promise<T> {
+  if (DEMO_MODE) {
+    const { demoRequest } = await demo();
+    const res = await demoRequest(path, (opts.method ?? "GET").toUpperCase(), opts.body);
+    if (res.error) throw new ApiError(res.status, res.error.code, res.error.message);
+    return res.data as T;
+  }
   const token = useAuth.getState().token;
   const headers = new Headers(opts.headers);
   const isForm = typeof FormData !== "undefined" && opts.body instanceof FormData;
@@ -59,10 +69,16 @@ export async function request<T>(path: string, opts: Options = {}): Promise<T> {
 
 /** Download an authenticated file (CAM PDF/DOCX, original documents). */
 export async function download(path: string, fallbackName: string): Promise<void> {
-  const res = await request<Response>(path, { raw: true });
-  const blob = await res.blob();
-  const disposition = res.headers.get("content-disposition") ?? "";
-  const name = disposition.match(/filename="?([^"]+)"?/)?.[1] ?? fallbackName;
+  let blob: Blob;
+  let name = fallbackName;
+  if (DEMO_MODE) {
+    ({ blob, name } = (await demo()).demoDownload(path));
+  } else {
+    const res = await request<Response>(path, { raw: true });
+    blob = await res.blob();
+    const disposition = res.headers.get("content-disposition") ?? "";
+    name = disposition.match(/filename="?([^"]+)"?/)?.[1] ?? fallbackName;
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -73,6 +89,7 @@ export async function download(path: string, fallbackName: string): Promise<void
 
 /** XHR upload so we get real byte-level progress (fetch has no upload progress). */
 export function uploadWithProgress<T>(path: string, form: FormData, onProgress: (pct: number) => void): Promise<T> {
+  if (DEMO_MODE) return demo().then((d) => d.demoUpload(path, form, onProgress) as Promise<T>);
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_BASE}${path}`);

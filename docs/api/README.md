@@ -8,8 +8,9 @@
 * Every error uses one envelope, with the request id echoed in the `X-Request-ID` header:
 
 ```json
-{ "error": { "code": "validation_failed", "message": "Request validation failed",
-             "details": [{ "loc": "body.company.gstin", "msg": "Invalid GSTIN (format or checksum)" }],
+{ "error": { "code": "validation_failed",
+             "message": "company.gstin: Value error, Invalid GSTIN (format or checksum)",
+             "details": { "issues": [{ "field": "company.gstin", "message": "Value error, Invalid GSTIN (format or checksum)" }] },
              "request_id": "6c0e…" } }
 ```
 

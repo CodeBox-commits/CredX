@@ -1,38 +1,53 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+
+# Build output
+frontend/.next*/
+frontend/out/
+*.tsbuildinfo
+dist/
+dist-ssr/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime data (databases, uploaded documents, generated CAMs)
+*.db
+*.db-shm
+*.db-wal
+backend/storage/
+
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-.env
+# Local scratch / old checkouts
+CredX/
 references/
-.credx-dev-*.err
-.credx-dev-*.log
-.vite-dev.err
-.vite-dev.log
+ml/experiments/*.json
 
-# Editor directories and files
+# Editors & OS
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
+Thumbs.db
 *.suo
-*.ntvs*
-*.njsproj
-*.sln
 *.sw?
-
-# Python backend
-backend/.venv/
-backend/.env
-backend/**/__pycache__/
-backend/storage/uploads/
-backend/storage/parsed/
-backend/storage/reports/

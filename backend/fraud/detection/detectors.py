@@ -94,9 +94,10 @@ def detect_shell_indicators(g: nx.MultiDiGraph, borrower_id: str) -> list[dict[s
             by_key[("PAN", d["pan"])].append(n)
         if d.get("address"):
             by_key[("address", d["address"].lower())].append(n)
-    for (kind, value), nodes in by_key.items():
+    for (kind, _), nodes in by_key.items():
         if len(nodes) >= 2:
             names = [g.nodes[n]["name"] for n in nodes]
+            value = g.nodes[nodes[0]]["pan" if kind == "PAN" else "address"]
             alerts.append(_alert("shared_identity", "HIGH", f"{len(nodes)} counterparties share the same {kind}",
                                  f"{', '.join(names)} share {kind} '{value}'. Distinct trading partners rarely do.",
                                  nodes, {"attribute": kind, "value": value, "companies": names}, 10))

@@ -5,10 +5,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from database.base import Base, IdMixin, JSONType, TimestampMixin
+from database.base import Base, IdMixin, JSONType, TimestampMixin, UTCDateTime
 from models.enums import AlertStatus
 
 
@@ -43,7 +43,7 @@ class ResearchFinding(IdMixin, Base):
     snippet: Mapped[str | None] = mapped_column(Text)
     source: Mapped[str] = mapped_column(String(160))
     url: Mapped[str | None] = mapped_column(String(1000))
-    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    published_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     sentiment: Mapped[float] = mapped_column(Float, default=0.0)
     severity: Mapped[str] = mapped_column(String(16), default="LOW")
     tags: Mapped[list[str]] = mapped_column(JSONType, default=list)

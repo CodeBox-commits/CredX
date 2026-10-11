@@ -1,50 +1,77 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, ExternalLink, Globe2, Landmark, Newspaper, RefreshCw, Scale } from "lucide-react";
+import {
+  Building2, ChevronDown, ExternalLink, Factory, Gavel, Globe2, Landmark, Loader2, Megaphone, Newspaper, RefreshCw, Scale, ShieldAlert, Smile,
+  TrendingDown, TrendingUp,
+} from "lucide-react";
 import { useState } from "react";
 
 import { SentimentTimeline } from "@/charts/intel-charts";
 import { useCaseContext } from "@/components/case/case-context";
 import { BlockSkeleton, EmptyState, SectionCard, Stat, ToneBadge } from "@/components/common/primitives";
 import { Button } from "@/components/ui/button";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useCaseAction, useResearch } from "@/hooks/queries";
 import { formatCr, relativeTime, titleCase } from "@/lib/format";
-import { riskTone, severityTone, statusTone } from "@/lib/tones";
+import { riskTone, severityTone, statusTone, type Tone, toneHsl } from "@/lib/tones";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/store/auth";
 import type { ResearchFinding } from "@/types/api";
 
+const CAT_ICON: Record<string, typeof Newspaper> = { news: Newspaper, litigation: Scale, regulatory: Gavel, mca: Building2, fraud: ShieldAlert, sector: Factory };
+
+function SignalTile({ icon: Icon, label, value, tone, detail, delay }: { icon: typeof Scale; label: string; value: string; tone: Tone; detail: string; delay: number }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }} className="panel relative overflow-hidden p-4">
+      <div className="absolute inset-x-0 top-0 h-1" style={{ background: toneHsl[tone] }} />
+      <div className="flex items-center justify-between">
+        <p className="text-[13px] text-muted-foreground">{label}</p>
+        <span className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ background: toneHsl[tone].replace(")", " / 0.12)"), color: toneHsl[tone] }}><Icon className="h-4 w-4" /></span>
+      </div>
+      <p className="mt-2 font-display text-xl font-bold" style={{ color: toneHsl[tone] }}>{value}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
+    </motion.div>
+  );
+}
+
 function FindingCard({ f, index }: { f: ResearchFinding; index: number }) {
   const [open, setOpen] = useState(false);
+  const Icon = CAT_ICON[f.category] ?? Newspaper;
+  const tone = severityTone(f.severity);
   return (
-    <motion.li layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(index * 0.03, 0.3) }} className="rounded-xl border border-border bg-card">
-      <button className="flex w-full items-start gap-3 p-3 text-left" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <span className="numeric mt-0.5 w-6 shrink-0 text-xs text-muted-foreground">[{index + 1}]</span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">{f.title}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {f.source} · {f.published_at ? relativeTime(f.published_at) : "undated"} · {titleCase(f.category)}
-            {f.provider === "demo_intel" && <span className="ml-1 text-accent">· demo data (fictional)</span>}
-          </p>
-        </div>
-        <ToneBadge tone={severityTone(f.severity)}>{f.severity}</ToneBadge>
-        <span className={cn("numeric w-12 text-right text-xs", f.sentiment < -0.15 ? "text-destructive" : f.sentiment > 0.15 ? "text-success" : "text-muted-foreground")}>
-          {f.sentiment > 0 ? "+" : ""}{f.sentiment.toFixed(2)}
-        </span>
-        <ChevronDown className={cn("mt-0.5 h-4 w-4 shrink-0 transition", open && "rotate-180")} />
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-            <div className="border-t border-border px-12 py-3 text-sm text-muted-foreground">
-              {f.snippet || "No snippet provided by the source."}
-              {f.url && <a href={f.url} target="_blank" rel="noopener noreferrer" className="ml-2 inline-flex items-center gap-1 text-primary hover:underline">Source <ExternalLink className="h-3 w-3" /></a>}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+    <motion.li layout initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: Math.min(index * 0.04, 0.3) }} className="relative pl-8">
+      <span className="absolute left-0 top-3 flex h-6 w-6 items-center justify-center rounded-full border-2 border-card" style={{ background: toneHsl[tone] }}>
+        <Icon className="h-3 w-3 text-white" />
+      </span>
+      <div className="rounded-xl border border-border bg-surface transition hover:border-foreground/15">
+        <button className="flex w-full items-start gap-3 p-3.5 text-left" onClick={() => setOpen(!open)} aria-expanded={open}>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium leading-snug">{f.title}</p>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+              <span className="numeric">[{index + 1}]</span><span>{f.source}</span><span>·</span><span>{f.published_at ? relativeTime(f.published_at) : "undated"}</span>
+              {(f.provider === "demo_intel" || f.provider === "offline") && <span className="text-accent">· demo (fictional)</span>}
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <ToneBadge tone={tone}>{f.severity}</ToneBadge>
+            <span className={cn("numeric inline-flex items-center gap-0.5 text-[11px]", f.sentiment < -0.15 ? "text-destructive" : f.sentiment > 0.15 ? "text-success" : "text-muted-foreground")}>
+              {f.sentiment < -0.15 ? <TrendingDown className="h-3 w-3" /> : f.sentiment > 0.15 ? <TrendingUp className="h-3 w-3" /> : null}
+              {f.sentiment > 0 ? "+" : ""}{f.sentiment.toFixed(2)}
+            </span>
+          </div>
+          <ChevronDown className={cn("mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition", open && "rotate-180")} />
+        </button>
+        <AnimatePresence initial={false}>
+          {open && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+              <div className="border-t border-border/70 px-3.5 py-3 text-[13px] leading-relaxed text-muted-foreground">
+                {f.snippet || "No snippet provided by the source."}
+                {f.url && <a href={f.url} target="_blank" rel="noopener noreferrer" className="ml-2 inline-flex items-center gap-1 text-primary hover:underline">Open source <ExternalLink className="h-3 w-3" /></a>}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </motion.li>
   );
 }
@@ -57,81 +84,96 @@ export default function ResearchPage() {
   const [cat, setCat] = useState("all");
 
   if (isLoading) return <BlockSkeleton />;
-  if (!r) return <EmptyState icon={Globe2} title="No research yet" description="Secondary research runs as part of full analysis, or on its own." action={can("analyst") && <Button onClick={() => run.mutate()}>Run research</Button>} />;
-  const findings = r.findings.filter((f) => cat === "all" || f.category === cat);
-  const cats = ["all", ...new Set(r.findings.map((f) => f.category))];
+  if (!r) {
+    return <EmptyState icon={Globe2} title="No research yet" description="Secondary research runs as part of full analysis, or on its own."
+      action={can("analyst") && <Button onClick={() => run.mutate()} disabled={run.isPending}>{run.isPending ? <Loader2 className="animate-spin" /> : <Globe2 />} Run research</Button>} />;
+  }
+  const counts = r.findings.reduce<Record<string, number>>((m, f) => ((m[f.category] = (m[f.category] ?? 0) + 1), m), {});
+  const findings = [...r.findings].filter((f) => cat === "all" || f.category === cat)
+    .sort((a, b) => (b.published_at ?? "").localeCompare(a.published_at ?? ""));
+  const sectorRisk = r.sector.risk > 5 ? `${r.sector.risk}/100` : `${r.sector.risk}/5`;
 
   return (
-    <div className="grid gap-5 xl:grid-cols-3">
-      <SectionCard eyebrow="Synthesis" title="External intelligence summary" className="xl:col-span-2"
-        actions={can("analyst") && <Button variant="outline" size="sm" onClick={() => run.mutate()} disabled={run.isPending}><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Refresh</Button>}>
-        <div className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-4">
-          <div><p className="eyebrow">Litigation risk</p><ToneBadge tone={riskTone(r.litigation_risk)} className="mt-1">{r.litigation_risk} · {Math.round(r.litigation_score)}</ToneBadge></div>
-          <div><p className="eyebrow">Promoter sentiment</p><ToneBadge tone={statusTone(r.promoter_sentiment)} className="mt-1">{r.promoter_sentiment} · {r.sentiment_score.toFixed(2)}</ToneBadge></div>
-          <div><p className="eyebrow">Sector outlook</p><ToneBadge tone={statusTone(r.sector_outlook)} className="mt-1">{r.sector_outlook}</ToneBadge></div>
-          <div><p className="eyebrow">Overall external risk</p><ToneBadge tone={riskTone(r.overall_risk)} className="mt-1">{r.overall_risk}</ToneBadge></div>
-        </div>
-        <p className="text-sm leading-relaxed">{r.summary}</p>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Sources: {r.providers.join(", ")} · summary by {r.summary_provider ?? "local"} · {r.queries.length} queries · {relativeTime(r.created_at)}
-        </p>
-      </SectionCard>
-
-      <SectionCard eyebrow="Timeline" title="Sentiment over time">
-        <SentimentTimeline findings={r.findings} />
-      </SectionCard>
-
-      <SectionCard eyebrow="Findings" title={`Research cards (${r.findings.length})`} className="xl:col-span-2"
-        actions={
-          <ToggleGroup type="single" value={cat} onValueChange={(v) => v && setCat(v)} aria-label="Filter findings">
-            {cats.map((c) => <ToggleGroupItem key={c} value={c} size="sm" className="h-7 text-xs">{titleCase(c)}</ToggleGroupItem>)}
-          </ToggleGroup>
-        }>
-        <ul className="space-y-2">
-          {findings.map((f) => <FindingCard key={f.title} f={f} index={r.findings.indexOf(f)} />)}
-          {!findings.length && <p className="text-sm text-muted-foreground">No findings in this category.</p>}
-        </ul>
-      </SectionCard>
-
-      <div className="space-y-5">
-        <SectionCard eyebrow="Courts & tribunals" title="Litigation exposure" actions={<Scale className="h-4 w-4 text-muted-foreground" />}>
-          <ul className="space-y-2.5 text-sm">
-            {r.litigation_cases.map((c, i) => (
-              <li key={i} className="rounded-lg border border-border p-2.5">
-                <p className="font-medium">{c.title ?? c.types.join(", ")}</p>
-                <p className="text-xs text-muted-foreground">
-                  {c.source === "document" ? "Uploaded notice" : "News"}{c.forum && ` · ${c.forum}`}{c.claim_amount ? ` · claim ${formatCr(c.claim_amount)}` : ""}{c.status && ` · ${c.status}`}
-                  {c.borrower_is_claimant && <span className="text-success"> · borrower is claimant</span>} · weight {c.weight}
-                </p>
-              </li>
-            ))}
-            {!r.litigation_cases.length && <li className="text-muted-foreground">No litigation identified.</li>}
-          </ul>
-        </SectionCard>
-        {r.mca && (
-          <SectionCard eyebrow="MCA21" title="Corporate registry" actions={<Landmark className="h-4 w-4 text-muted-foreground" />}>
-            <div className="grid grid-cols-2 gap-3">
-              <Stat label="Status" value={titleCase(r.mca.company_status)} />
-              <Stat label="Vintage" value={r.mca.vintage_years ? `${r.mca.vintage_years} yrs` : "—"} />
-              <Stat label="Open charges" value={r.mca.open_charges.length} />
-              <Stat label="Directors" value={r.mca.directors.length} />
-            </div>
-            {r.mca.cin_details && <p className="mt-3 font-mono text-xs text-muted-foreground">{r.mca.cin} · {r.mca.cin_details.listing} · {r.mca.cin_details.company_class}</p>}
-            <ul className="mt-3 space-y-1.5 text-sm">{r.mca.observations.map((o) => <li key={o.text} className="flex gap-2"><ToneBadge tone={severityTone(o.severity)}>{o.severity}</ToneBadge>{o.text}</li>)}</ul>
-          </SectionCard>
-        )}
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <SignalTile icon={Scale} label="Litigation risk" value={titleCase(r.litigation_risk.toLowerCase())} tone={riskTone(r.litigation_risk)} detail={`${r.litigation_cases.length} matter(s) · score ${Math.round(r.litigation_score)}`} delay={0} />
+        <SignalTile icon={Smile} label="Promoter sentiment" value={titleCase(r.promoter_sentiment.toLowerCase())} tone={statusTone(r.promoter_sentiment)} detail={`Avg sentiment ${r.sentiment_score >= 0 ? "+" : ""}${r.sentiment_score.toFixed(2)}`} delay={0.05} />
+        <SignalTile icon={Factory} label="Sector outlook" value={titleCase(r.sector_outlook.toLowerCase())} tone={statusTone(r.sector_outlook)} detail={`${r.sector.name} · risk ${sectorRisk}`} delay={0.1} />
+        <SignalTile icon={ShieldAlert} label="Overall external risk" value={titleCase(r.overall_risk.toLowerCase())} tone={riskTone(r.overall_risk)} detail={`${r.findings.length} findings · ${r.providers.length} sources`} delay={0.15} />
       </div>
 
-      <SectionCard eyebrow={`Sector knowledge base · ${r.sector.kb_version}`} title={`${r.sector.name} — risk band ${r.sector.risk}/5`} className="xl:col-span-3"
-        actions={<Newspaper className="h-4 w-4 text-muted-foreground" />}>
-        <div className="grid gap-5 md:grid-cols-3">
-          {[["Headwinds", r.sector.headwinds, "text-destructive"], ["Tailwinds", r.sector.tailwinds, "text-success"], ["RBI & regulatory context", r.sector.rbi_context, "text-primary"]].map(([title, items, cls]) => (
-            <div key={title as string}>
-              <p className={cn("mb-2 text-xs font-semibold", cls as string)}>{title as string}</p>
-              <ul className="list-disc space-y-1 pl-4 text-sm text-muted-foreground">{(items as string[]).map((x) => <li key={x}>{x}</li>)}</ul>
+      <SectionCard title="Intelligence summary" icon={Megaphone}
+        actions={can("analyst") && <Button variant="outline" size="sm" onClick={() => run.mutate()} disabled={run.isPending}>{run.isPending ? <Loader2 className="animate-spin" /> : <RefreshCw />} Refresh</Button>}>
+        <p className="text-[15px] leading-relaxed">{r.summary}</p>
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>Sources:</span>
+          {r.providers.map((p) => <span key={p} className="rounded-full border border-border px-2 py-0.5 font-mono text-[11px]">{p}</span>)}
+          <span className="ml-auto">Summary by {r.summary_provider ?? "local"} · {r.queries.length} queries · {relativeTime(r.created_at)}</span>
+        </div>
+      </SectionCard>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <SectionCard title="Intelligence feed" icon={Newspaper}
+          actions={
+            <div className="flex flex-wrap gap-1">
+              {["all", ...Object.keys(counts)].map((c) => (
+                <button key={c} onClick={() => setCat(c)} className={cn("rounded-lg px-2.5 py-1 text-xs font-medium transition", cat === c ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+                  {titleCase(c)} <span className="numeric opacity-70">{c === "all" ? r.findings.length : counts[c]}</span>
+                </button>
+              ))}
+            </div>
+          }>
+          <ul className="relative space-y-3 before:absolute before:bottom-2 before:left-[11px] before:top-2 before:w-px before:bg-border">
+            {findings.map((f) => <FindingCard key={f.title} f={f} index={r.findings.indexOf(f)} />)}
+            {!findings.length && <p className="pl-8 text-sm text-muted-foreground">No findings in this category.</p>}
+          </ul>
+        </SectionCard>
+
+        <div className="space-y-6">
+          <SectionCard title="Sentiment over time" icon={TrendingUp}><SentimentTimeline findings={r.findings} /></SectionCard>
+
+          <SectionCard title="Litigation exposure" icon={Scale}>
+            <ul className="space-y-2.5">
+              {r.litigation_cases.map((c, i) => (
+                <li key={i} className="rounded-xl border border-border/70 p-3">
+                  <p className="text-[13px] font-medium">{c.title ?? c.types.map(titleCase).join(", ")}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{c.forum ?? (c.source === "documents" ? "Uploaded notice" : "News")}{c.status && ` · ${c.status}`}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {c.claim_amount ? <ToneBadge tone="warning">Claim {formatCr(c.claim_amount)}</ToneBadge> : null}
+                    {c.borrower_is_claimant && <ToneBadge tone="success">Borrower is claimant</ToneBadge>}
+                    {c.types.map((t) => <ToneBadge key={t} tone="muted">{titleCase(t)}</ToneBadge>)}
+                  </div>
+                </li>
+              ))}
+              {!r.litigation_cases.length && <li className="rounded-xl bg-success/[0.07] p-3 text-[13px] text-success">No litigation identified across courts, tribunals and documents.</li>}
+            </ul>
+          </SectionCard>
+
+          {r.mca && (
+            <SectionCard title="MCA21 registry" icon={Landmark}>
+              <div className="grid grid-cols-2 gap-4">
+                <Stat label="Status" value={titleCase(r.mca.company_status)} tone={r.mca.company_status.toLowerCase() === "active" ? "success" : "destructive"} />
+                <Stat label="Vintage" value={r.mca.vintage_years ? `${r.mca.vintage_years} yrs` : "—"} />
+                <Stat label="Open charges" value={r.mca.open_charges.length} />
+                <Stat label="Directors" value={r.mca.directors.length} />
+              </div>
+              {r.mca.cin && <p className="mt-3 font-mono text-xs text-muted-foreground">CIN {r.mca.cin}</p>}
+              <ul className="mt-3 space-y-2">{r.mca.observations.map((o) => <li key={o.text} className="flex items-start gap-2 text-[13px]"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: toneHsl[severityTone(o.severity)] }} />{o.text}</li>)}</ul>
+            </SectionCard>
+          )}
+        </div>
+      </div>
+
+      <SectionCard title={`${r.sector.name} — sector context`} icon={Factory} info={`CredX sector knowledge base ${r.sector.kb_version}. Verify the latest RBI circulars before relying on a reference.`}>
+        <div className="grid gap-4 md:grid-cols-3">
+          {([["Headwinds", r.sector.headwinds, "destructive", TrendingDown], ["Tailwinds", r.sector.tailwinds, "success", TrendingUp], ["RBI & regulatory context", r.sector.rbi_context, "primary", Landmark]] as const).map(([title, items, tone, Icon]) => (
+            <div key={title} className="rounded-xl border border-border/70 p-4">
+              <p className="mb-3 flex items-center gap-2 text-sm font-semibold" style={{ color: toneHsl[tone] }}><Icon className="h-4 w-4" />{title}</p>
+              <ul className="space-y-2 text-[13px] text-muted-foreground">{items.map((x) => <li key={x} className="flex gap-2"><span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground" />{x}</li>)}</ul>
             </div>
           ))}
         </div>
+        {r.sector.benchmark_ebitda_margin != null && <p className="mt-3 text-xs text-muted-foreground">Sector benchmark EBITDA margin: <b className="text-foreground">{(r.sector.benchmark_ebitda_margin * 100).toFixed(0)}%</b></p>}
       </SectionCard>
     </div>
   );

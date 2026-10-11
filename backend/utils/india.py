@@ -106,8 +106,3 @@ def format_inr_short(amount: float | int | None) -> str:
     if value >= 1e5:
         return f"{sign}₹{value / 1e5:,.2f} L"
     return f"{sign}₹{value:,.0f}"
-
-
-def indian_fy(year_end: int) -> str:
-    """2025 -> 'FY25' (April 2024 – March 2025)."""
-    return f"FY{year_end % 100:02d}"

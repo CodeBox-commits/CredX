@@ -5,10 +5,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from database.base import Base, IdMixin, JSONType, TimestampMixin
+from database.base import Base, IdMixin, JSONType, TimestampMixin, UTCDateTime
 from models.enums import CaseStatus
 
 if TYPE_CHECKING:
@@ -23,7 +23,7 @@ class User(IdMixin, TimestampMixin, Base):
     hashed_password: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(32), default="analyst", index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_login_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
 
 class Company(IdMixin, TimestampMixin, Base):
@@ -64,7 +64,7 @@ class CreditCase(IdMixin, TimestampMixin, Base):
     created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     final_decision: Mapped[str | None] = mapped_column(String(32))
     decided_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     decision_rationale: Mapped[str | None] = mapped_column(Text)
     # Denormalised headline numbers so list views never need to join score history.
     latest_score: Mapped[int | None] = mapped_column(Integer)

@@ -7,8 +7,10 @@ import type { CaseOverview } from "@/types/api";
 interface CaseCtx {
   caseId: string;
   overview: CaseOverview | undefined;
-  /** Track a background job started from any tab: progress banner + refresh on completion. */
+  /** Track a background job started from any stage: live tracker + refresh on completion. */
   watchJob: (jobId: string) => void;
+  /** Open the case-grounded copilot drawer from anywhere in the case workspace. */
+  openCopilot: () => void;
 }
 
 export const CaseContext = createContext<CaseCtx | null>(null);

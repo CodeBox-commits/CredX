@@ -21,7 +21,7 @@ describe("explainability components", () => {
 
   it("shows risk badges and an unscored fallback", () => {
     render(<><RiskBadge risk="HIGH" /><RiskBadge risk={null} /><ToneBadge tone="success">ok</ToneBadge></>);
-    expect(screen.getByText("HIGH")).toBeInTheDocument();
+    expect(screen.getByText("High risk")).toBeInTheDocument();
     expect(screen.getByText("Unscored")).toBeInTheDocument();
   });
 

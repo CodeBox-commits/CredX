@@ -97,16 +97,16 @@ export function ExtractionViewer({ documentId, onClose }: { documentId: string |
               </TabsList>
               <TabsContent value="summary" className="space-y-5">
                 <div className="rounded-xl border border-border p-4">
-                  <p className="eyebrow mb-2">Structured output</p>
+                  <p className="label mb-2">Structured output</p>
                   <pre className="overflow-x-auto rounded-lg bg-muted/50 p-3 font-mono text-xs">{JSON.stringify(ex.headline, null, 2)}</pre>
                 </div>
                 <div>
-                  <p className="eyebrow mb-2">Why classified as {titleCase(ex.doc_type)} ({Math.round(ex.classification.confidence * 100)}%)</p>
+                  <p className="label mb-2">Why classified as {titleCase(ex.doc_type)} ({Math.round(ex.classification.confidence * 100)}%)</p>
                   <div className="flex flex-wrap gap-1.5">{ex.classification.signals.map((s) => <span key={s} className="rounded border border-border bg-muted/50 px-1.5 py-0.5 font-mono text-[11px]">{s}</span>)}</div>
                 </div>
                 {(["gst", "bank", "legal", "sanction", "shareholding", "mca"] as const).map((k) => ex[k] && (
                   <div key={k} className="rounded-xl border border-border p-4">
-                    <p className="eyebrow mb-3">{k === "mca" ? "MCA filing" : titleCase(k)} extraction</p>
+                    <p className="label mb-3">{k === "mca" ? "MCA filing" : titleCase(k)} extraction</p>
                     <KV data={ex[k] as Record<string, any>} />
                     {k === "gst" && ex.gst?.returns.length ? (
                       <ul className="mt-3 space-y-1 text-sm">{ex.gst.returns.map((r) => <li key={r.return_type} className="flex justify-between"><span>{r.return_type}</span><span className="numeric">{formatCr(r.turnover)}</span></li>)}</ul>
@@ -115,14 +115,14 @@ export function ExtractionViewer({ documentId, onClose }: { documentId: string |
                 ))}
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <p className="eyebrow mb-2">Identifiers</p>
+                    <p className="label mb-2">Identifiers</p>
                     <div className="space-y-1 font-mono text-xs">
                       {[...ex.identifiers.gstins.map((g) => `GSTIN ${g}`), ...ex.identifiers.cins.map((c) => `CIN ${c}`), ...ex.directors.map((d) => `${d.name}${d.din ? ` · DIN ${d.din}` : ""}`)].map((x) => <p key={x}>{x}</p>)}
                       {!ex.identifiers.gstins.length && !ex.identifiers.cins.length && !ex.directors.length && <p className="font-sans text-muted-foreground">None found</p>}
                     </div>
                   </div>
                   <div>
-                    <p className="eyebrow mb-2">Risk indicators</p>
+                    <p className="label mb-2">Risk indicators</p>
                     <ul className="space-y-1.5 text-sm">
                       {ex.red_flags.map((f) => <li key={f.label} className="flex items-start gap-2"><ToneBadge tone={severityTone(f.severity)}>{f.severity}</ToneBadge><span>{f.label}</span></li>)}
                       {ex.positive_signals.map((p) => <li key={p} className="flex items-start gap-2"><ToneBadge tone="success">OK</ToneBadge><span>{p}</span></li>)}
@@ -177,7 +177,7 @@ export function ExtractionViewer({ documentId, onClose }: { documentId: string |
                   ))}
                 </ol>
                 <div>
-                  <p className="eyebrow mb-2">Pages</p>
+                  <p className="label mb-2">Pages</p>
                   <div className="flex flex-wrap gap-1.5">
                     {ex.pages.map((p) => <span key={p.number} title={`${p.chars} chars, ${Math.round(p.confidence * 100)}% confidence`} className={`rounded border px-1.5 py-0.5 font-mono text-[11px] ${p.method === "ocr" ? "border-accent/40 text-accent" : "border-border"}`}>p{p.number}·{p.method}</span>)}
                   </div>

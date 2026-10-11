@@ -1,38 +1,35 @@
+"""Formatting helpers shared by the CAM builder and renderers."""
+
 from __future__ import annotations
 
-from datetime import datetime
+from typing import Any
 
-from utils.inr import format_inr, format_inr_compact
-
-
-def money(value: float | None) -> str:
-    return format_inr_compact(value)
+from utils.india import format_inr_short
 
 
-def money_full(value: float | None) -> str:
-    return format_inr(value)
+def inr(v: Any) -> str:
+    return format_inr_short(v) if isinstance(v, int | float) else "—"
 
 
-def pct(value: float | None, digits: int = 1) -> str:
-    return "—" if value is None else f"{value * 100:.{digits}f}%"
+def pct(v: Any, digits: int = 1) -> str:
+    return f"{v * 100:.{digits}f}%" if isinstance(v, int | float) else "—"
 
 
-def times(value: float | None) -> str:
-    return "—" if value is None else f"{value:.2f}x"
+def times(v: Any) -> str:
+    return f"{v:.2f}x" if isinstance(v, int | float) else "—"
 
 
-def date(value: datetime | str | None) -> str:
-    if value is None:
-        return "—"
-    if isinstance(value, str):
-        try:
-            value = datetime.fromisoformat(value)
-        except ValueError:
-            return value
-    return value.strftime("%d %b %Y")
+def days(v: Any) -> str:
+    return f"{v:.0f}" if isinstance(v, int | float) else "—"
 
 
-def ratio(a: float | None, b: float | None) -> float | None:
-    if a is None or b in (None, 0):
-        return None
-    return a / b  # type: ignore[operator]
+def label(s: str | None) -> str:
+    return (s or "—").replace("_", " ").title()
+
+
+DECISION_TEXT = {
+    "APPROVE": "Approve",
+    "APPROVE_WITH_CONDITIONS": "Approve with conditions",
+    "REFER": "Refer to credit committee",
+    "DECLINE": "Decline",
+}

@@ -507,6 +507,7 @@ export interface DashboardSummary {
   alerts: { id: string; case_id: string; company: string; title: string; severity: Severity; alert_type: string }[];
   ai_usage: { provider: string; input_tokens: number; output_tokens: number; calls: number }[];
   active_jobs: number;
+  recent_activity: AuditEntry[];
 }
 
 export interface FinancialsResponse {

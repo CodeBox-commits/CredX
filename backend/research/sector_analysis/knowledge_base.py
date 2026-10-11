@@ -148,26 +148,55 @@ SECTORS: dict[str, dict[str, Any]] = {
     },
 }
 
-_ALIASES = {
-    "textile": "textiles", "apparel": "textiles", "garments": "textiles", "auto": "auto_components",
-    "automotive": "auto_components", "auto components": "auto_components", "pharma": "pharmaceuticals",
-    "healthcare": "pharmaceuticals", "infra": "infrastructure", "construction": "infrastructure", "epc": "infrastructure",
-    "food": "food_processing", "agri": "food_processing", "agriculture": "food_processing", "fmcg": "food_processing",
-    "financial services": "nbfc", "finance": "nbfc", "realty": "real_estate", "real estate": "real_estate",
-    "it": "it_services", "technology": "it_services", "software": "it_services", "steel": "steel_metals",
-    "metals": "steel_metals", "chemical": "chemicals", "solar": "renewable_energy", "renewable": "renewable_energy",
-    "power": "renewable_energy", "hotel": "hospitality",
+KB_VERSION = "2026-Q3"
+_OUTLOOK = {"FAVORABLE": "STRONG", "STABLE": "STABLE", "WEAK": "WEAK"}
+# Indicative sector EBITDA margins used as a benchmark in the CAM.
+_BENCHMARK_MARGIN = {
+    "textiles": 0.10, "auto_components": 0.12, "pharmaceuticals": 0.20, "infrastructure": 0.12, "food_processing": 0.11,
+    "nbfc": 0.35, "real_estate": 0.25, "it_services": 0.20, "steel_metals": 0.14, "chemicals": 0.16,
+    "renewable_energy": 0.70, "hospitality": 0.28, "manufacturing": 0.12,
+}
+# Keywords matched against the sector field and free text (company name, sub-sector, purpose).
+_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "textiles": ("textile", "apparel", "garment", "knit", "yarn", "spinning", "weaving", "denim", "tiruppur", "hosiery"),
+    "auto_components": ("auto", "automotive", "two-wheeler", "pressings", "forging", "oem", "components"),
+    "pharmaceuticals": ("pharma", "drug", "api", "formulation", "healthcare", "biotech"),
+    "infrastructure": ("infra", "epc", "construction", "highway", "road", "bridge", "civil works"),
+    "food_processing": ("food", "agri", "spice", "dairy", "dehydrat", "fmcg", "rice", "edible oil"),
+    "nbfc": ("nbfc", "finance", "lending", "microfinance", "financial services"),
+    "real_estate": ("real estate", "realty", "housing", "developer"),
+    "it_services": ("software", "it services", "technology", "saas"),
+    "steel_metals": ("steel", "metal", "alloy", "aluminium", "casting"),
+    "chemicals": ("chemical", "specialty", "dyes", "pigment", "agrochemical"),
+    "renewable_energy": ("solar", "wind", "renewable", "power"),
+    "hospitality": ("hotel", "hospitality", "resort", "restaurant"),
 }
 
 
-def sector_profile(sector: str | None) -> dict[str, Any]:
-    key = (sector or "manufacturing").strip().lower().replace("&", "and")
-    if key.replace(" ", "_") in SECTORS:
-        resolved = key.replace(" ", "_")
-    else:
-        resolved = next((v for alias, v in _ALIASES.items() if alias in key), "manufacturing")
-    return {"key": resolved, **SECTORS[resolved]}
+def resolve_sector(sector: str | None, text: str = "") -> tuple[str, dict[str, Any]]:
+    """Resolve a sector key from the declared sector (preferred) or free text; returns (key, view)."""
+    declared = (sector or "").strip().lower().replace("&", "and")
+    key = declared.replace(" ", "_") if declared.replace(" ", "_") in SECTORS else None
+    if key is None and declared.startswith("infrastructure"):
+        key = "infrastructure"
+    for haystack in (declared, text.lower()):
+        if key is None and haystack:
+            key = next((k for k, words in _KEYWORDS.items() if any(w in haystack for w in words)), None)
+    key = key or "manufacturing"
+    return key, _view(key)
 
 
-def list_sectors() -> list[dict[str, Any]]:
-    return [{"key": k, "label": v["label"], "outlook": v["outlook"], "risk_score": v["risk_score"]} for k, v in SECTORS.items()]
+def _view(key: str) -> dict[str, Any]:
+    s = SECTORS[key]
+    return {"key": key, "name": s["label"], "risk": s["risk_score"], "outlook": _OUTLOOK[s["outlook"]],
+            "headwinds": s["headwinds"], "tailwinds": s["tailwinds"], "rbi_context": s["rbi_references"],
+            "monitorables": s.get("monitorables", []), "benchmark_ebitda_margin": _BENCHMARK_MARGIN.get(key),
+            "kb_version": KB_VERSION}
+
+
+def sector_view(sector: str | None, text: str = "") -> dict[str, Any]:
+    return resolve_sector(sector, text)[1]
+
+
+def list_sectors() -> list[dict[str, str]]:
+    return [{"key": k, "name": v["label"]} for k, v in SECTORS.items()]

@@ -39,7 +39,7 @@ python ../ml/training/train.py --data path/to/portfolio.csv --target defaulted
   in model validation.
 * **Native TreeSHAP** (`pred_contribs=True`) — exact Shapley values from the booster itself, no `shap`
   dependency at serving time.
-* **Points-to-double-odds scaling** (PDO 28, 680 ⇔ 20:1) — SHAP log-odds map linearly to score points, so the
+* **Points-to-double-odds scaling** (PDO 20, 680 ⇔ 20:1) — SHAP log-odds map linearly to score points, so the
   explanation waterfall sums *exactly* to the score.
 * **Missing values are first-class** — 8% of training values are masked so trees learn sensible default
   branches; the UI shows which inputs were missing rather than silently imputing.

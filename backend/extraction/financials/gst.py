@@ -1,125 +1,68 @@
-"""GST return extraction (GSTR-1 / GSTR-3B / GSTR-2A/2B summaries + counterparties)."""
+"""GST return summaries: GSTR-1 / 3B / 2A / 2B turnover, ITC, tax paid, filing delay and 2A-vs-3B mismatch."""
 
 from __future__ import annotations
 
 import re
+from datetime import datetime
 
-from utils.identifiers import GSTIN_RE, find_gstins
-from utils.text import normalize_space
+from extraction.normalization.amounts import find_amounts
+from extraction.normalization.fiscal import find_fiscal_years
+from utils.india import GSTIN_RE, is_valid_gstin
 
-from ..normalization.amounts import parse_amount
-from ..normalization.fiscal import parse_fiscal_year, parse_month
-from ..normalization.schema import Counterparty, ExtractedTable, FieldEvidence, GstPeriodData
-
-_COLUMN_FIELDS: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"gstr[- ]?1\b.*(?:turnover|sales|outward|value)|outward.*gstr[- ]?1", re.I), "gstr1_turnover"),
-    (re.compile(r"gstr[- ]?3b.*(?:turnover|outward|taxable|value)|^(?:taxable )?turnover.*3b", re.I), "gstr3b_turnover"),
-    (re.compile(r"gstr[- ]?2[ab].*(?:turnover|purchase|inward|value)", re.I), "gstr2a_turnover"),
-    (re.compile(r"itc.*(?:2a|2b|available|eligible)|(?:2a|2b).*itc", re.I), "itc_available"),
-    (re.compile(r"itc.*(?:claimed|availed|3b)|(?:3b).*itc", re.I), "itc_claimed"),
-    (re.compile(r"tax (?:paid|liability)|cash (?:paid|ledger)|output tax", re.I), "tax_paid"),
-    (re.compile(r"delay|days late|filing lag", re.I), "filing_delay_days"),
-]
-
-_NARRATIVE = {
-    "gstr1_turnover": re.compile(r"gstr[- ]?1[^\n:]{0,40}?(?:turnover|sales|value)?\s*[:\-]?\s*(?:was|of|at)?\s*(?P<amt>(?:rs\.?|inr|₹)?\s*[\d,.]+\s*(?:crores?|cr|lakhs?|lacs?|mn|million)?)", re.I),
-    "gstr3b_turnover": re.compile(r"gstr[- ]?3b[^\n:]{0,40}?turnover\s*[:\-]?\s*(?:was|of|at)?\s*(?P<amt>(?:rs\.?|inr|₹)?\s*[\d,.]+\s*(?:crores?|cr|lakhs?|lacs?|mn|million)?)", re.I),
-    "gstr2a_turnover": re.compile(r"gstr[- ]?2[ab][^\n:]{0,40}?(?:turnover|purchases|inward)\s*[:\-]?\s*(?:was|of|at)?\s*(?P<amt>(?:rs\.?|inr|₹)?\s*[\d,.]+\s*(?:crores?|cr|lakhs?|lacs?|mn|million)?)", re.I),
-    "itc_claimed": re.compile(r"itc\s+(?:claimed|availed)[^\n:]{0,40}?\s*[:\-]?\s*(?:was|of|at)?\s*(?P<amt>(?:rs\.?|inr|₹)?\s*[\d,.]+\s*(?:crores?|cr|lakhs?|lacs?|mn|million)?)", re.I),
-    "itc_available": re.compile(r"itc\s+(?:available|as per gstr[- ]?2[ab]|eligible)[^\n:]{0,40}?\s*[:\-]?\s*(?:was|of|at)?\s*(?P<amt>(?:rs\.?|inr|₹)?\s*[\d,.]+\s*(?:crores?|cr|lakhs?|lacs?|mn|million)?)", re.I),
-    "tax_paid": re.compile(r"(?:total )?tax paid[^\n:]{0,30}?\s*[:\-]?\s*(?:was|of|at)?\s*(?P<amt>(?:rs\.?|inr|₹)?\s*[\d,.]+\s*(?:crores?|cr|lakhs?|lacs?|mn|million)?)", re.I),
-}
-
-_PARTY_LINE = re.compile(
-    rf"(?P<name>[A-Z][A-Za-z0-9&.,' ()-]{{3,80}}?)\s+(?:GSTIN[:\s]*)?(?P<gstin>{GSTIN_RE.pattern[2:-2]})\s+(?P<rest>.*)",
-)
+_RETURN_RE = re.compile(r"\bGSTR[- ]?(1|3B|2A|2B|9|9C)\b[^\n:]{0,40}?(?:turnover|outward supplies|taxable value|sales)?[^\n]*?:\s*([^\n]+)", re.I)
+_ITC_RE = re.compile(r"input tax credit[^\n:]{0,25}(?:claimed|availed)?\s*:\s*([^\n]+)", re.I)
+_TAX_RE = re.compile(r"(?:total )?tax paid[^\n:]{0,20}:\s*([^\n]+)", re.I)
+_DUE_RE = re.compile(r"due date[^\n:]{0,15}:\s*(\d{2}[-/.]\d{2}[-/.]\d{4})", re.I)
+_FILED_RE = re.compile(r"(?:date of filing|filed on)[^\n:]{0,10}:\s*(\d{2}[-/.]\d{2}[-/.]\d{4})", re.I)
 
 
-def _table_periods(tables: list[ExtractedTable], multiplier: float, gstin: str | None) -> list[GstPeriodData]:
-    periods: list[GstPeriodData] = []
-    for table in tables:
-        col_fields: dict[int, str] = {}
-        for idx, head in enumerate(table.header):
-            for pattern, field in _COLUMN_FIELDS:
-                if pattern.search(head) and idx not in col_fields and field not in col_fields.values():
-                    col_fields[idx] = field
-                    break
-        if not col_fields:
-            continue
-        for row in table.rows:
-            period = parse_month(row[0]) or parse_fiscal_year(row[0])
-            if not period:
-                continue
-            item = GstPeriodData(gstin=gstin, period=period)
-            for idx, field in col_fields.items():
-                if idx >= len(row):
-                    continue
-                if field == "filing_delay_days":
-                    digits = re.search(r"\d+", row[idx])
-                    item.filing_delay_days = int(digits.group()) if digits else 0
-                else:
-                    setattr(item, field, parse_amount(row[idx], default_multiplier=multiplier))
-            periods.append(item)
-    return periods
-
-
-def _narrative_summary(text: str, doc_fy: str | None, gstin: str | None) -> GstPeriodData | None:
-    values = {}
-    for field, pattern in _NARRATIVE.items():
-        m = pattern.search(text)
-        if m:
-            value = parse_amount(m.group("amt"))
-            if value and value > 0:
-                values[field] = value
-    if not values:
+def _date(raw: str | None) -> datetime | None:
+    if not raw:
         return None
-    return GstPeriodData(gstin=gstin, period=doc_fy or "ANNUAL", **values)
-
-
-def _counterparties(text: str, multiplier: float) -> list[Counterparty]:
-    parties: list[Counterparty] = []
-    role = "unknown"
-    for line in text.splitlines():
-        lowered = line.lower()
-        if "supplier" in lowered or "inward" in lowered or "purchases from" in lowered:
-            role = "supplier"
-        elif "customer" in lowered or "outward" in lowered or "sales to" in lowered or "buyer" in lowered:
-            role = "customer"
-        m = _PARTY_LINE.search(line)
-        if not m:
+    for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%d.%m.%Y"):
+        try:
+            return datetime.strptime(raw, fmt)
+        except ValueError:
             continue
-        rest = m.group("rest")
-        amount = parse_amount(rest, default_multiplier=multiplier)
-        invoices = re.search(r"(\d+)\s*invoices?", rest, re.I)
-        parties.append(
-            Counterparty(
-                name=normalize_space(m.group("name")).strip(" -:"),
-                gstin=m.group("gstin").upper(),
-                amount=amount,
-                invoice_count=int(invoices.group(1)) if invoices else None,
-                role=role,  # type: ignore[arg-type]
-            )
-        )
-    return parties
+    return None
 
 
-def extract_gst(
-    pages: list[str], tables: list[ExtractedTable], *, doc_fy: str | None, multiplier: float
-) -> tuple[list[GstPeriodData], list[Counterparty], list[FieldEvidence]]:
-    text = "\n".join(pages)
-    gstins = find_gstins(text)
-    primary = gstins[0] if gstins else None
-    periods = _table_periods(tables, multiplier, primary)
-    evidence: list[FieldEvidence] = []
-    if periods:
-        evidence.append(FieldEvidence(field="gst_periods", value=len(periods), confidence=0.9, method="table"))
-    summary = _narrative_summary(text, doc_fy, primary)
-    if summary and not periods:
-        periods.append(summary)
-        evidence.extend(
-            FieldEvidence(field=f"gst.{k}", value=v, confidence=0.72, method="narrative", fiscal_year=summary.period)
-            for k, v in summary.model_dump(exclude={"gstin", "period", "filing_delay_days"}).items()
-            if v is not None
-        )
-    parties = [p for p in _counterparties(text, multiplier) if p.gstin != primary]
-    return periods, parties, evidence
+def _money(raw: str) -> float | None:
+    amounts = find_amounts(raw, money_only=True) or find_amounts(raw)
+    return amounts[0][0] if amounts else None
+
+
+def mismatch_pct(gstr3b: float | None, gstr2: float | None) -> float | None:
+    """Share of GSTR-3B turnover not corroborated by counterparty filings (2A/2B), in %."""
+    if not gstr3b or gstr2 is None:
+        return None
+    return round(abs(gstr3b - gstr2) / gstr3b * 100, 2)
+
+
+def extract_gst(text: str) -> dict:
+    returns: list[dict] = []
+    for m in _RETURN_RE.finditer(text):
+        value = _money(m.group(2))
+        rtype = f"GSTR-{m.group(1).upper()}"
+        if value is not None and rtype not in {r["return_type"] for r in returns}:
+            returns.append({"return_type": rtype, "turnover": value, "evidence": m.group(0).strip()[:200]})
+    by_type = {r["return_type"]: r["turnover"] for r in returns}
+    gstins = [g for g in dict.fromkeys(GSTIN_RE.findall(text.upper())) if is_valid_gstin(g)]
+    due, filed = _date((_DUE_RE.search(text) or [None, None])[1]), _date((_FILED_RE.search(text) or [None, None])[1])
+    fys = find_fiscal_years(text)
+    counter = by_type.get("GSTR-2A") or by_type.get("GSTR-2B")
+    return {
+        "gstin": gstins[0] if gstins else None,
+        "period": fys[0] if fys else None,
+        "returns": returns,
+        "gstr1_turnover": by_type.get("GSTR-1"),
+        "gstr3b_turnover": by_type.get("GSTR-3B"),
+        "gstr2a_turnover": counter,
+        "mismatch_pct": mismatch_pct(by_type.get("GSTR-3B"), counter),
+        "gstr1_vs_3b_pct": mismatch_pct(by_type.get("GSTR-3B"), by_type.get("GSTR-1")),
+        "itc_claimed": _money(m.group(1)) if (m := _ITC_RE.search(text)) else None,
+        "tax_paid": _money(m.group(1)) if (m := _TAX_RE.search(text)) else None,
+        "due_date": due.date().isoformat() if due else None,
+        "filed_on": filed.date().isoformat() if filed else None,
+        "days_late": max(0, (filed - due).days) if due and filed else None,
+    }

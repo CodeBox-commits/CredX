@@ -31,7 +31,7 @@ serialised for thread safety). Fine for demos and low volume; use Celery for pro
 
 ## Security checklist
 
-- [x] `JWT_SECRET` required in production (startup fails on the default); bcrypt password hashing.
+- [x] `JWT_SECRET` required in production (startup fails on the default); PBKDF2-SHA256 password hashing (390k iterations).
 - [x] Role-based access on every route; maker–checker on overrides; append-only audit log with request ids.
 - [x] Upload hardening: extension allow-list, magic-byte sniffing, size cap, PDF active-content rejection, SHA-256 de-duplication, sanitised filenames, storage keys never derived from user input.
 - [x] Login/registration rate limiting; uniform error envelope (no stack traces leak).

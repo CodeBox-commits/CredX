@@ -12,6 +12,7 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from typing import Protocol
+from xml.etree import ElementTree
 
 import httpx
 
@@ -128,18 +129,17 @@ class GoogleNewsRssProvider(_HttpProvider):
     def available(self) -> bool:
         return self.settings.research_live
 
-    @retry(attempts=2, retry_on=(httpx.HTTPError,))
+    @retry(attempts=2, retry_on=(httpx.HTTPError, ElementTree.ParseError))
     def _fetch(self, query: str, limit: int) -> list[Article]:
-        import feedparser
-
         url = "https://news.google.com/rss/search?" + urllib.parse.urlencode({"q": query, "hl": "en-IN", "gl": "IN", "ceid": "IN:en"})
         resp = httpx.get(url, timeout=self.settings.research_timeout_s, follow_redirects=True)
         resp.raise_for_status()
-        feed = feedparser.parse(resp.text)
         out = []
-        for e in feed.entries[:limit]:
-            source = getattr(getattr(e, "source", None), "title", None) or "Google News"
-            out.append(Article(e.get("title", ""), "", e.get("link"), source, _iso(e.get("published")), self.name, query))
+        for item in ElementTree.fromstring(resp.text).iter("item"):
+            if len(out) >= limit:
+                break
+            out.append(Article(item.findtext("title") or "", "", item.findtext("link"), item.findtext("source") or "Google News",
+                               _iso(item.findtext("pubDate")), self.name, query))
         return out
 
     def search(self, query: str, limit: int = 10) -> list[Article]:

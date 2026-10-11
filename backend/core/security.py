@@ -6,21 +6,20 @@ import base64
 import hashlib
 import hmac
 import secrets
-from datetime import datetime, timedelta, timezone
-from enum import Enum
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from typing import Any
 
 import jwt
 
 from config import get_settings
-
-from .errors import AuthenticationError
+from core.errors import AuthError
 
 _PBKDF2_ITERATIONS = 390_000
 _SCHEME = "pbkdf2_sha256"
 
 
-class Role(str, Enum):
+class Role(StrEnum):
     ADMIN = "admin"
     CREDIT_MANAGER = "credit_manager"
     ANALYST = "analyst"
@@ -57,10 +56,10 @@ def verify_password(password: str, stored: str) -> bool:
     return hmac.compare_digest(digest, base64.b64decode(digest_b64))
 
 
-def create_access_token(subject: str, *, role: str, extra: dict[str, Any] | None = None) -> tuple[str, int]:
+def create_access_token(subject: str, role: str, extra: dict[str, Any] | None = None) -> tuple[str, int]:
     settings = get_settings()
     expires_in = settings.access_token_minutes * 60
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {
         "sub": subject,
         "role": role,
@@ -77,6 +76,6 @@ def decode_access_token(token: str) -> dict[str, Any]:
     try:
         return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm], issuer="credx")
     except jwt.ExpiredSignatureError as exc:
-        raise AuthenticationError("Session expired, please sign in again") from exc
+        raise AuthError("Session expired, please sign in again") from exc
     except jwt.PyJWTError as exc:
-        raise AuthenticationError("Invalid authentication token") from exc
+        raise AuthError("Invalid authentication token") from exc

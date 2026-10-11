@@ -1,6 +1,5 @@
 #!/bin/sh
-# Container entrypoint: `api` (default) runs migrations then serves; `worker` runs Celery;
-# `seed` loads the demo portfolio; anything else is executed as-is.
+# Process roles for the CredX image:  api | worker | seed | <any command>
 set -e
 
 case "$1" in
@@ -9,7 +8,7 @@ case "$1" in
       alembic upgrade head
     fi
     if [ "${SEED_DEMO:-false}" = "true" ]; then
-      python -m database.seed
+      python -m database.seed   # idempotent: skips when the demo portfolio already exists
     fi
     exec uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}" --proxy-headers --forwarded-allow-ips="*" \
       --workers "${WEB_CONCURRENCY:-2}"

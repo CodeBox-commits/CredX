@@ -11,6 +11,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from ai.orchestration.router import get_router
+from ai.prompts.templates import PROMPT_VERSION
 from ai.providers.base import ChatMessage, LLMError
 from ai.summarizers.services import answer_question
 from api.deps import AnyUser, Manager, get_case_or_404
@@ -58,7 +59,7 @@ def chat_history(case_id: str | None = None, db: Session = Depends(get_db), user
 @router.get("/copilot/providers")
 def providers(_: User = AnyUser) -> dict[str, Any]:
     r = get_router()
-    return {"order": [p.name for p in r.providers], "active": r.active_providers(),
+    return {"order": [p.name for p in r.providers], "active": r.active_providers(), "prompt_version": PROMPT_VERSION,
             "models": {"anthropic": get_settings().anthropic_model, "openai": get_settings().openai_model, "gemini": get_settings().gemini_model}}
 
 
@@ -146,6 +147,9 @@ def dashboard(db: Session = Depends(get_db), _: User = AnyUser) -> dict[str, Any
                     "severity": a.severity, "alert_type": a.alert_type} for a in open_alerts],
         "ai_usage": [{"provider": p, "input_tokens": int(i or 0), "output_tokens": int(o or 0), "calls": n} for p, i, o, n in tokens],
         "active_jobs": db.scalar(select(func.count()).select_from(Job).where(Job.status.in_(["queued", "running"]))),
+        # Business-level activity feed for every role (the full audit log stays manager-only).
+        "recent_activity": [AuditOut.model_validate(a).model_dump(mode="json") for a in db.scalars(select(AuditLog).where(AuditLog.case_id.is_not(None), ~AuditLog.action.like("auth.%"))
+                                                .order_by(AuditLog.created_at.desc()).limit(12))],
     }
 
 

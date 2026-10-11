@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import select
@@ -27,7 +28,7 @@ from database.base import Base
 from database.demo.documents import document_pack
 from database.demo.portfolio import PORTFOLIO, gstin_for
 from database.session import get_engine, init_db, session_scope
-from models import AnalystNote, Company, CreditCase, Document, Job, User
+from models import AnalystNote, Company, CreditCase, Document, Escalation, Job, User
 from models.enums import CaseStatus, DocumentStatus, JobKind
 from services.audit import audit
 from workers.runner import run_job
@@ -35,9 +36,9 @@ from workers.runner import run_job
 log = get_logger("credx.seed")
 DEMO_PASSWORD = "CredX@2026"
 USERS = [
-    ("admin@credx.demo", "Aditi Rao", "admin"),
-    ("manager@credx.demo", "Rahul Mehta", "credit_manager"),
-    ("analyst@credx.demo", "Priya Nair", "analyst"),
+    ("admin@credx.demo", "Meera Shah", "admin"),
+    ("manager@credx.demo", "Vikram Iyer", "credit_manager"),
+    ("analyst@credx.demo", "Ananya Rao", "analyst"),
     ("viewer@credx.demo", "Arjun Iyer", "viewer"),
 ]
 
@@ -49,6 +50,32 @@ def export_documents(target: Path) -> None:
         for name, data in document_pack(spec, seed=11 + i):
             (folder / name).write_bytes(data)
     log.info("demo documents exported", extra={"path": str(target)})
+
+
+# Workflow end-states so the seeded pipeline shows decided and escalated cases, not only "in review".
+OUTCOMES = {
+    "sunline": ("decision", "APPROVE", "Strong cash accruals, clean GST and banking conduct; collateral verified. Approved as recommended."),
+    "nebula": ("escalate", "credit_manager",
+               "Circular trading ring with a shared director, GST 2A/3B gap and IBC demand notice — refer to FRMU before any decision."),
+}
+
+
+def _apply_outcome(db, case: CreditCase, key: str, analyst: User, manager: User) -> None:
+    outcome = OUTCOMES.get(key)
+    if outcome is None:
+        return
+    kind, value, reason = outcome
+    if kind == "decision":
+        case.final_decision, case.decision_rationale = value, reason
+        case.decided_by_id, case.decided_at, case.status = manager.id, datetime.now(UTC), CaseStatus.APPROVED
+        audit(db, manager, "case.decision", "case", case.id, case.id, summary=f"Final decision: {value.replace('_', ' ').title()}",
+              details={"rationale": reason, "model_score": case.latest_score})
+    else:
+        db.add(Escalation(case_id=case.id, raised_by_id=analyst.id, to_role=value, reason=reason))
+        case.status = CaseStatus.ESCALATED
+        audit(db, analyst, "case.escalate", "escalation", None, case.id, summary=f"Escalated to {value.replace('_', ' ')}",
+              details={"reason": reason})
+    db.commit()
 
 
 def _run(db, kind: JobKind, case_id: str, user_id: str, document_id: str | None = None) -> Job:
@@ -115,6 +142,8 @@ def seed(reset: bool = False) -> None:
             audit(db, analyst, "job.full_analysis", "case", case.id, case.id, summary="Started full analysis")
             db.commit()
             job = _run(db, JobKind.FULL_ANALYSIS, case.id, analyst.id)
+            db.refresh(case)
+            _apply_outcome(db, case, spec["key"], analyst, users["credit_manager"])
             log.info("seeded demo case", extra={"company": c["name"], **(job.result or {})})
     log.info("seed complete", extra={"seconds": round(time.perf_counter() - started, 1)})
 

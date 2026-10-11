@@ -1,69 +1,73 @@
-"""Credit policy rules: knock-outs and deviations that sit on top of the model score."""
+"""Credit policy: knock-outs (automatic decline) and deviations (need sanctioning-authority approval).
+
+Rules sit on top of the model score; every rule reports its threshold, actual value and status so the
+credit committee sees exactly which policy the recommendation relies on.
+"""
 
 from __future__ import annotations
 
-import math
 from typing import Any
 
-from extraction.normalization.merge import CaseProfile
-
-from ..feature_engineering.features import FeatureVector, FraudSignals
+from scoring.feature_engineering.features import format_value
 
 
-def _check(code: str, label: str, status: str, value: Any, threshold: str, detail: str) -> dict[str, Any]:
-    return {"code": code, "label": label, "status": status, "value": value, "threshold": threshold, "detail": detail}
+def _rule(rid: str, name: str, kind: str, threshold: str, actual: Any, failed: bool | None, guidance: str) -> dict[str, Any]:
+    status = "na" if failed is None else ("fail" if failed else "pass")
+    return {"id": rid, "name": name, "kind": kind, "threshold": threshold, "actual": actual, "status": status, "guidance": guidance}
 
 
-def evaluate_policy(
-    features: FeatureVector, profile: CaseProfile, fraud: FraudSignals, litigation_risk: str
-) -> list[dict[str, Any]]:
-    v = features.values
-    checks: list[dict[str, Any]] = []
-    codes = {r.code for r in profile.risk_indicators}
+def _cmp(value: float | None, limit: float, lower_is_breach: bool) -> bool | None:
+    if value is None:
+        return None
+    return value < limit if lower_is_breach else value > limit
 
-    def ratio(name: str) -> float | None:
-        x = v.get(name)
-        return None if x is None or math.isnan(x) else x
 
-    # --- Knock-outs (automatic decline / referral) ---
-    if "wilful_defaulter" in codes:
-        checks.append(_check("ko_wilful", "Wilful defaulter", "KNOCKOUT", True, "Must be absent",
-                             "RBI master direction prohibits fresh facilities to wilful defaulters."))
-    if any(m.forum == "NCLT" and m.status == "ADMITTED" for m in profile.legal):
-        checks.append(_check("ko_cirp", "Admitted insolvency (CIRP)", "KNOCKOUT", True, "Must be absent",
-                             "Company is under a corporate insolvency resolution process."))
-    if "npa_sma" in codes:
-        checks.append(_check("ko_npa", "SMA / NPA classification", "KNOCKOUT", True, "Standard account",
-                             "Existing exposure is classified SMA/NPA in source documents."))
-    if fraud.risk_level == "CRITICAL":
-        checks.append(_check("ko_fraud", "Critical fraud indicators", "KNOCKOUT", round(fraud.fraud_risk_score), "< 75",
-                             "Refer to fraud risk management before any credit decision."))
+def evaluate_policy(features: dict[str, float | None], red_flags: list[dict[str, Any]], legal: list[dict[str, Any]]) -> dict[str, Any]:
+    labels = {f.get("label") for f in red_flags}
+    f = features
 
-    # --- Financial covenants (deviations) ---
-    dscr = ratio("dscr")
-    if dscr is not None:
-        checks.append(_check("dscr_min", "Minimum DSCR", "PASS" if dscr >= 1.25 else "DEVIATION", round(dscr, 2), "≥ 1.25x",
-                             "Cash accruals must cover scheduled debt service with a 25% cushion."))
-    lev = ratio("debt_to_ebitda")
-    if lev is not None:
-        checks.append(_check("leverage_max", "Max Debt / EBITDA", "PASS" if lev <= 4.0 else "DEVIATION", round(lev, 2), "≤ 4.0x",
-                             "Total debt should be repayable from ~4 years of EBITDA."))
-    gearing = ratio("debt_to_equity")
-    if gearing is not None:
-        checks.append(_check("gearing_max", "Max TOL/TNW proxy (Debt/Equity)", "PASS" if gearing <= 2.5 else "DEVIATION",
-                             round(gearing, 2), "≤ 2.5x", "Promoter equity cushion requirement."))
-    cr = ratio("current_ratio")
-    if cr is not None:
-        checks.append(_check("current_ratio_min", "Minimum current ratio", "PASS" if cr >= 1.2 else "DEVIATION", round(cr, 2),
-                             "≥ 1.20x", "Working-capital lenders typically require a current ratio of 1.2x–1.33x."))
-    itc = ratio("itc_excess")
-    if itc is not None:
-        checks.append(_check("gst_itc", "GST ITC integrity", "PASS" if itc <= 0.1 else "DEVIATION", round(itc, 3), "≤ 10% excess",
-                             "ITC claimed in GSTR-3B should be supported by GSTR-2A/2B."))
-    if litigation_risk in {"HIGH", "CRITICAL"}:
-        checks.append(_check("litigation", "Material litigation", "DEVIATION", litigation_risk, "≤ MEDIUM",
-                             "High-severity litigation requires credit committee approval."))
-    if profile.data_completeness < 0.45:
-        checks.append(_check("data_sufficiency", "Data sufficiency", "DEVIATION", profile.data_completeness, "≥ 0.45",
-                             "Insufficient audited financials / GST / banking data to underwrite without additional documents."))
-    return checks
+    def shown(name: str) -> str | None:
+        return None if f.get(name) is None else format_value(name, f[name])
+
+    admitted_ibc = any(any("IBC" in t for t in (m.get("case_types") or [])) and m.get("status") == "adjudicated" for m in legal)
+    material_audit = labels & {"Going-concern uncertainty flagged by auditor", "Qualified/adverse audit opinion"}
+    rules = [
+        _rule("KO-01", "No wilful-defaulter reference", "knockout", "Absent", "Present" if "Wilful defaulter reference" in labels else "Absent",
+              "Wilful defaulter reference" in labels, "RBI Master Direction bars fresh facilities to wilful defaulters."),
+        _rule("KO-02", "No NPA / SMA classification", "knockout", "Standard account",
+              "SMA/NPA mentioned" if "NPA / SMA classification mentioned" in labels else "Standard",
+              "NPA / SMA classification mentioned" in labels, "Existing exposure classified SMA/NPA must be regularised first."),
+        _rule("KO-03", "No admitted insolvency (CIRP)", "knockout", "No admitted IBC petition", "Admitted" if admitted_ibc else "None admitted",
+              admitted_ibc, "A company under CIRP cannot be extended fresh credit outside the resolution process."),
+        _rule("KO-04", "Fraud risk below critical", "knockout", "Fraud score < 75", shown("fraud_score"),
+              None if f.get("fraud_score") is None else f["fraud_score"] >= 75,
+              "Critical fraud indicators require FRMU / forensic review before any sanction."),
+        _rule("KO-05", "No investigative-agency action", "knockout", "Absent",
+              "Present" if "Investigative agency action" in labels else "Absent", "Investigative agency action" in labels,
+              "ED/CBI/SFIO action against the borrower or promoters is a policy knock-out."),
+        _rule("DV-01", "Minimum DSCR", "deviation", "≥ 1.25x", shown("dscr"), _cmp(f.get("dscr"), 1.25, True),
+              "Cash accruals must cover scheduled debt service with a 25% cushion."),
+        _rule("DV-02", "Maximum Debt / EBITDA", "deviation", "≤ 4.0x", shown("debt_to_ebitda"), _cmp(f.get("debt_to_ebitda"), 4.0, False),
+              "Total debt should be repayable from about four years of EBITDA."),
+        _rule("DV-03", "Maximum Debt / Equity", "deviation", "≤ 2.5x", shown("debt_equity"), _cmp(f.get("debt_equity"), 2.5, False),
+              "Promoter equity cushion requirement (TOL/TNW proxy)."),
+        _rule("DV-04", "Minimum current ratio", "deviation", "≥ 1.20x", shown("current_ratio"), _cmp(f.get("current_ratio"), 1.2, True),
+              "Working-capital lenders expect a current ratio of 1.20x–1.33x."),
+        _rule("DV-05", "GST reconciliation (2A/2B vs 3B)", "deviation", "≤ 5%", shown("gst_mismatch_pct"),
+              _cmp(f.get("gst_mismatch_pct"), 5.0, False), "Turnover declared in GSTR-3B should be corroborated by counterparty filings."),
+        _rule("DV-06", "Promoter pledge", "deviation", "≤ 25%", shown("promoter_pledge_pct"), _cmp(f.get("promoter_pledge_pct"), 25.0, False),
+              "High pledge indicates promoter funding stress and control risk."),
+        _rule("DV-07", "Minimum security cover", "deviation", "≥ 1.25x", shown("collateral_coverage"),
+              _cmp(f.get("collateral_coverage"), 1.25, True), "Collateral should cover the exposure at least 1.25x."),
+        _rule("DV-08", "Material litigation", "deviation", "Litigation score ≤ 40", shown("litigation_score"),
+              _cmp(f.get("litigation_score"), 40.0, False), "High-severity litigation needs credit-committee review."),
+        _rule("DV-09", "Banking conduct", "deviation", "≤ 2 cheque/ECS bounces", shown("bank_bounce_count"),
+              _cmp(f.get("bank_bounce_count"), 2.0, False), "Repeated bounces indicate cash-flow stress."),
+        _rule("DV-10", "Clean audit opinion", "deviation", "No going-concern / qualified opinion",
+              ", ".join(sorted(material_audit)) or "Unmodified", bool(material_audit) if red_flags or legal else None,
+              "Adverse auditor remarks need credit-committee review."),
+    ]
+    knockouts = [r for r in rules if r["kind"] == "knockout" and r["status"] == "fail"]
+    deviations = [r for r in rules if r["kind"] == "deviation" and r["status"] == "fail"]
+    return {"rules": rules, "knockouts": knockouts, "deviations": deviations,
+            "passed": sum(1 for r in rules if r["status"] == "pass"), "not_evaluable": sum(1 for r in rules if r["status"] == "na")}

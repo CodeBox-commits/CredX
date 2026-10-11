@@ -1,8 +1,9 @@
 .venv
-**/__pycache__
+__pycache__
+*.pyc
 .pytest_cache
 .ruff_cache
 storage
-credx.db*
-scoring/models/artifacts
+*.db*
 .env
+tests

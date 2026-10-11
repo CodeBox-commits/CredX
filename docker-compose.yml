@@ -1,44 +1,87 @@
-version: "3.9"
+# Full CredX stack: Postgres + Redis + API + Celery worker + Next.js web.
+#   cp .env.example .env      # optional: add AI / research API keys
+#   docker compose up --build
+#   open http://localhost:3000  (demo logins: analyst@credx.demo / CredX@2026)
+x-backend: &backend
+  build:
+    context: ./backend
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    ENVIRONMENT: ${ENVIRONMENT:-development}
+    DATABASE_URL: postgresql://credx:credx@postgres:5432/credx
+    REDIS_URL: redis://redis:6379/0
+    JOB_BACKEND: celery
+    AUTO_CREATE_TABLES: "false"
+    STORAGE_DIR: /app/storage
+    CORS_ORIGINS: http://localhost:3000
+    JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-jwt-secret-change-me}
+  volumes:
+    - storage:/app/storage
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
 
 services:
-  frontend:
-    build:
-      context: .
-      dockerfile: docker/frontend.Dockerfile
-    ports:
-      - "8080:80"
-    depends_on:
-      - backend
-
-  backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    env_file:
-      - .env
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend/storage:/app/storage
-    depends_on:
-      - postgres
-      - redis
-
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     environment:
       POSTGRES_DB: credx
       POSTGRES_USER: credx
       POSTGRES_PASSWORD: credx
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U credx -d credx"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   redis:
     image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    <<: *backend
+    command: ["api"]
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DATABASE_URL: postgresql://credx:credx@postgres:5432/credx
+      REDIS_URL: redis://redis:6379/0
+      JOB_BACKEND: celery
+      AUTO_CREATE_TABLES: "false"
+      STORAGE_DIR: /app/storage
+      CORS_ORIGINS: http://localhost:3000
+      JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-jwt-secret-change-me}
+      SEED_DEMO: "true"
     ports:
-      - "6379:6379"
+      - "8000:8000"
+
+  worker:
+    <<: *backend
+    command: ["worker"]
+    depends_on:
+      api:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   postgres_data:
+  storage:

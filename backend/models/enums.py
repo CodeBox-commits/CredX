@@ -51,13 +51,6 @@ class JobKind(StrEnum):
     FULL_ANALYSIS = "full_analysis"
 
 
-class RiskLevel(StrEnum):
-    LOW = "LOW"
-    MEDIUM = "MEDIUM"
-    HIGH = "HIGH"
-    CRITICAL = "CRITICAL"
-
-
 class Decision(StrEnum):
     APPROVE = "APPROVE"
     APPROVE_WITH_CONDITIONS = "APPROVE_WITH_CONDITIONS"
@@ -68,16 +61,6 @@ class Decision(StrEnum):
 class NoteKind(StrEnum):
     NOTE = "note"
     COMMENT = "comment"
-
-
-class NoteCategory(StrEnum):
-    SITE_VISIT = "site_visit"
-    MANAGEMENT = "management"
-    OPERATIONS = "operations"
-    FINANCIAL = "financial"
-    COLLATERAL = "collateral"
-    COMPLIANCE = "compliance"
-    GENERAL = "general"
 
 
 class OverrideStatus(StrEnum):
